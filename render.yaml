@@ -1,0 +1,60 @@
+# Render Blueprint: one web service and one Postgres database.
+# In the Render dashboard choose New > Blueprint and pick this repository.
+# Render asks you to type the values marked "sync: false"; it generates the others.
+
+databases:
+  - name: kameen-db
+    plan: free
+    region: frankfurt
+
+services:
+  - type: web
+    name: kameen
+    runtime: python
+    region: frankfurt
+    plan: free            # switch to the smallest paid plan before outside testers arrive
+    rootDir: server
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kameen-db
+          property: connectionString
+      - key: FRONTEND_ORIGIN
+        value: https://ahmed-sharshar.github.io
+      - key: ACCESS_CODE              # the short code testers type on the landing page
+        sync: false
+      - key: ADMIN_CODE
+        generateValue: true
+      - key: LLM_SHARED_SECRET        # copy this value into each ElevenLabs agent's Custom LLM secret
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_AGENT_EN
+        sync: false
+      - key: ELEVENLABS_AGENT_EN_IN
+        sync: false
+      - key: ELEVENLABS_AGENT_AR
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        generateValue: true
+      - key: LIVE_MODEL
+        value: claude-haiku-5-5
+      - key: DIRECTOR_MODEL
+        value: claude-sonnet-5-5
+      - key: PLAYBOOK_MODEL
+        value: claude-opus-5-5
+      - key: DRILL_COOLDOWN_HOURS
+        value: "0"
+      - key: DRILL_MIN_GROUP
+        value: "5"
+      - key: CANARY_BANK_CODE
+        value: "999"
