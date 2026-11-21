@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Play the scammer - Kameen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300..700&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script>requireCode();</script>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="index.html">
+        <span class="brand-latin">Kameen</span>
+        <span class="brand-arabic" lang="ar" dir="rtl">كمين</span>
+      </a>
+      <nav class="topnav" aria-label="Sections">
+        <a href="decoy.html">Play the scammer</a>
+        <a href="drill.html">Test yourself</a>
+        <a href="dashboard.html">Dashboard</a>
+      </nav>
+      <span class="status-pill" id="status" role="status" data-state="waking">Waking up Kameen...</span>
+    </header>
+
+    <main class="workspace">
+      <section class="setup" aria-labelledby="setup-title">
+        <h1 id="setup-title">Play the scammer</h1>
+        <p class="lede">Pick who answers, then try to scam them. Kameen stalls you and notes what you give away.</p>
+
+        <div class="setup-grid" style="margin-top: 1.25rem;">
+          <fieldset id="persona-field">
+            <legend class="group-label">Who answers</legend>
+            <div class="choices" id="personas">
+              <p class="empty" id="personas-empty">Loading personas...</p>
+            </div>
+          </fieldset>
+
+          <div class="stack">
+            <fieldset>
+              <legend class="group-label">Looks like</legend>
+              <div class="segmented" id="skins">
+                <label><input type="radio" name="skin" value="sms" checked><span>SMS</span></label>
+                <label><input type="radio" name="skin" value="whatsapp"><span>WhatsApp</span></label>
+                <label><input type="radio" name="skin" value="email"><span>Email</span></label>
+              </div>
+            </fieldset>
+
+            <div class="actions">
+              <button type="button" class="btn btn-primary" id="start-text" disabled>Start text session</button>
+              <button type="button" class="btn" id="start-call" disabled>Start call</button>
+            </div>
+            <p class="note" id="setup-error" role="alert" hidden></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="stage-col" aria-label="Conversation">
+        <div class="phone skin-sms" id="phone">
+          <div class="phone-head">
+            <span class="phone-avatar" aria-hidden="true"></span>
+            <span class="phone-who">
+              <span class="phone-name" id="contact-name">Victim</span>
+              <span class="phone-sub" id="contact-sub">Text message</span>
+            </span>
+          </div>
+          <div class="callbar" id="callbar" hidden>
+            <span class="callbar-text">
+              <strong>Call</strong>
+              <span class="callbar-time" id="call-time" role="timer"></span>
+            </span>
+            <button type="button" class="btn btn-small" id="hangup">Hang up</button>
+          </div>
+          <div class="transcript" id="transcript" role="log" aria-live="polite" aria-label="Messages" tabindex="0"></div>
+          <form class="composer" id="composer">
+            <label class="sr-only" for="msg">Your message as the scammer</label>
+            <textarea id="msg" rows="1" placeholder="Write as the scammer" autocomplete="off" disabled></textarea>
+            <button type="submit" class="send" id="send" disabled>Send</button>
+          </form>
+        </div>
+
+        <div class="under-phone">
+          <p class="note" id="stream-note" role="status" hidden></p>
+          <p class="note" id="chat-error" role="alert" hidden></p>
+
+          <form class="rating" id="rating" hidden>
+            <label for="rating-text" class="field-label" style="margin: 0;">How believable was the victim? One line.</label>
+            <div class="rating-row">
+              <input class="input" type="text" id="rating-text" maxlength="300" autocomplete="off">
+              <button type="submit" class="btn btn-primary" id="rating-send">Send rating</button>
+            </div>
+            <p class="note" id="rating-note" role="status" hidden></p>
+          </form>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="What Kameen has learned">
+        <div class="panel-block">
+          <h2>Stage</h2>
+          <span class="stage-chip" id="stage" data-idle="true">Not started</span>
+          <p class="stage-note" id="stage-note" hidden></p>
+        </div>
+
+        <div class="panel-block">
+          <h2>Intel cards <span class="count" id="intel-count">0</span></h2>
+          <ul class="intel-list" id="intel" aria-live="polite"></ul>
+          <p class="empty" id="intel-empty">Account numbers, phone numbers and links the scammer gives away appear here.</p>
+        </div>
+
+        <div class="panel-block">
+          <h2>Guardrail events</h2>
+          <ul class="guard-list" id="guards" aria-live="polite"></ul>
+          <p class="empty" id="guards-empty">None so far.</p>
+        </div>
+
+        <div class="panel-block" id="canary-block" hidden>
+          <h2>Canaries handed out</h2>
+          <ul class="intel-list" id="canaries"></ul>
+          <p class="small" style="margin-top: 0.5rem;">Fake, tracked values the victim gave the scammer.</p>
+        </div>
+
+        <div class="panel-block">
+          <div class="actions">
+            <button type="button" class="btn btn-danger" id="kill" disabled>End session</button>
+            <a class="btn btn-quiet" id="evidence" target="_blank" rel="noopener" aria-disabled="true">Evidence pack</a>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script type="module" src="voice.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      if (!getStored('code')) return;
+      markNav();
+
+      var VOICE_LIMIT_SECONDS = 300;
+      var SKIN_LABELS = { sms: 'Text message', whatsapp: 'WhatsApp', email: 'Email' };
+
+      var statusEl = $('#status');
+      var personasEl = $('#personas');
+      var startText = $('#start-text');
+      var startCall = $('#start-call');
+      var setupError = $('#setup-error');
+      var phone = $('#phone');
+      var contactName = $('#contact-name');
+      var contactSub = $('#contact-sub');
+      var transcript = $('#transcript');
+      var composer = $('#composer');
+      var msg = $('#msg');
+      var sendBtn = $('#send');
+      var streamNote = $('#stream-note');
+      var chatError = $('#chat-error');
+      var ratingForm = $('#rating');
+      var ratingText = $('#rating-text');
+      var ratingSend = $('#rating-send');
+      var ratingNote = $('#rating-note');
+      var stageChip = $('#stage');
+      var stageNote = $('#stage-note');
+      var intelList = $('#intel');
+      var intelCount = $('#intel-count');
+      var intelEmpty = $('#intel-empty');
+      var guardList = $('#guards');
+      var guardsEmpty = $('#guards-empty');
+      var canaryBlock = $('#canary-block');
+      var canaryList = $('#canaries');
+      var killBtn = $('#kill');
+      var evidence = $('#evidence');
+
+      var ready = false;      /* server answered /health */
+      var starting = false;   /* POST /sessions or call setup in flight */
+      var killing = false;
+      var rated = false;
+      var personas = [];
+      var activePersona = null;
+      var intelSeen = {};
+      var stageSeen = false;
+
+      var chat = createChat({
+        listEl: transcript,
+        names: function () {
+          return { agent: 'From ' + (activePersona ? activePersona.name : 'the victim'), counterpart: 'From you' };
+        },
+        onStart: resetPanel,
+        onEvent: onEvent,
+        onEnded: onEnded,
+        onStream: function (state) {
+          note(streamNote, state === 'lost' ? 'Live connection lost. Reconnecting...' : '');
+        }
+      });
+
+      var callbar = createCallBar({
+        barEl: $('#callbar'),
+        timeEl: $('#call-time'),
+        maxSeconds: VOICE_LIMIT_SECONDS,
+        onChange: refresh
+      });
+
+      /* ---------- state to controls ---------- */
+
+      function selectedPersona() {
+        var picked = $('input[name="persona"]:checked', personasEl);
+        if (!picked) return null;
+        for (var i = 0; i < personas.length; i++) {
+          if (String(personas[i].id) === picked.value) return personas[i];
+        }
+        return null;
+      }
+
+      function refresh() {
+        var canStart = ready && !starting && !chat.live && personas.length > 0;
+        startText.disabled = !canStart;
+        startCall.disabled = !canStart;
+        $all('input[name="persona"]', personasEl).forEach(function (radio) {
+          radio.disabled = starting || chat.live;
+        });
+        var canType = chat.live && !starting && callbar.state === 'idle';
+        msg.disabled = !canType;
+        sendBtn.disabled = !canType || chat.sending;
+        killBtn.disabled = !chat.live || killing;
+        ratingSend.disabled = rated;
+      }
+
+      function showContact() {
+        var persona = chat.live || chat.id != null ? activePersona : selectedPersona();
+        contactName.textContent = persona ? persona.name : 'Victim';
+        var skin = ($('input[name="skin"]:checked') || {}).value || 'sms';
+        phone.className = 'phone skin-' + skin;
+        contactSub.textContent = callbar.state !== 'idle' ? 'Call' : SKIN_LABELS[skin];
+      }
+
+      /* ---------- side panel ---------- */
+
+      function setStage(stage, text) {
+        if (stage == null || stage === '') return;
+        stageSeen = true;
+        setText(stageChip, String(stage));
+        stageChip.dataset.idle = 'false';
+        note(stageNote, text || '');
+      }
+
+      function addIntel(intel, quiet) {
+        if (!intel) return;
+        var key = intelKey(intel);
+        if (intelSeen[key]) return;
+        intelSeen[key] = true;
+        var card = renderIntelCard(intel);
+        if (!quiet) card.classList.add('is-new');
+        intelList.insertBefore(card, intelList.firstChild);
+        intelCount.textContent = String(intelList.children.length);
+        intelEmpty.hidden = true;
+      }
+
+      function addGuard(name) {
+        guardList.insertBefore(h('li', { class: 'guard' }, [
+          h('span', { text: labelFor(GUARD_LABELS, name) }),
+          h('span', { class: 'guard-time', text: formatTime(Date.now()) })
+        ]), guardList.firstChild);
+        guardsEmpty.hidden = true;
+      }
+
+      function resetPanel() {
+        intelSeen = {};
+        stageSeen = false;
+        rated = false;
+        clearNode(intelList);
+        clearNode(guardList);
+        clearNode(canaryList);
+        intelCount.textContent = '0';
+        intelEmpty.hidden = false;
+        guardsEmpty.hidden = false;
+        canaryBlock.hidden = true;
+        setText(stageChip, 'Starting');
+        stageChip.dataset.idle = 'true';
+        note(stageNote, '');
+        note(chatError, '');
+        note(streamNote, '');
+        note(ratingNote, '');
+        ratingForm.hidden = true;
+        ratingText.value = '';
+        ratingText.disabled = false;
+        evidence.href = evidenceUrl(chat.id);
+        evidence.removeAttribute('aria-disabled');
+      }
+
+      /* ---------- live events ---------- */
+
+      function onEvent(ev) {
+        if (ev.type === 'intel') addIntel(ev.intel);
+        else if (ev.type === 'stage') setStage(ev.stage, ev.note);
+        else if (ev.type === 'guard') addGuard(ev.event);
+      }
+
+      function onEnded(reason) {
+        addBubble(transcript, 'marker', reason ? 'Session ended: ' + humanize(reason) : 'Session ended', { stick: true });
+        callbar.stop();
+        ratingForm.hidden = false;
+        refresh();
+        showContact();
+        /* final check against the server record: any intel missed live, and the canaries handed out */
+        var id = chat.id;
+        apiGet(sessionPath(id)).then(function (data) {
+          if (chat.id !== id || !data) return;
+          (data.intel || []).forEach(function (item) { addIntel(item, true); });
+          var canaries = data.canaries || [];
+          clearNode(canaryList);
+          canaries.forEach(function (item) { canaryList.appendChild(renderCanary(item)); });
+          canaryBlock.hidden = canaries.length === 0;
+        }).catch(function () { /* the panel keeps what arrived live */ });
+      }
+
+      /* ---------- starting ---------- */
+
+      async function start(channel) {
+        if (!ready || starting || chat.live) return;
+        var persona = selectedPersona();
+        if (!persona) {
+          note(setupError, 'Pick who answers first.', 'error');
+          return;
+        }
+        starting = true;
+        refresh();
+        note(setupError, '');
+        try {
+          activePersona = persona;
+          await chat.start({
+            mode: 'decoy',
+            persona_id: persona.id,
+            channel: channel === 'voice' ? 'voice' : 'web'
+          }, channel === 'voice');
+        } catch (err) {
+          starting = false;
+          refresh();
+          if (authFailed(err)) return;
+          note(setupError, err.message, 'error');
+          return;
+        }
+
+        showContact();
+        var id = chat.id;
+        apiGet(sessionPath(id)).then(function (data) {
+          if (chat.id === id && !stageSeen && data && data.conversation) setStage(data.conversation.stage, '');
+        }).catch(function () { /* the chip fills in on the first stage event */ });
+
+        if (channel === 'voice') {
+          if (!transcript.firstChild) setHint(transcript, 'Calling ' + persona.name + '. Speak when the call connects.');
+          try {
+            await callbar.start(id);
+            /* the session may have been ended while the call was still connecting */
+            if (!chat.live || chat.id !== id) await callbar.stop();
+          } catch (err) {
+            if (!transcript.firstChild || transcript.querySelector('.transcript-hint')) {
+              setHint(transcript, 'The call did not start. You can write to ' + persona.name + ' instead.');
+            }
+            note(chatError, 'Call could not start: ' + voiceErrorText(err) + ' You can carry on by text.', 'error');
+          }
+        } else {
+          setHint(transcript, persona.name + ' is there. You write first.');
+        }
+        starting = false;
+        refresh();
+        showContact();
+        if (!msg.disabled) msg.focus();
+        if (window.matchMedia('(max-width: 60rem)').matches) phone.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+
+      startText.addEventListener('click', function () { start('web'); });
+      startCall.addEventListener('click', function () { start('voice'); });
+
+      /* ---------- talking ---------- */
+
+      function fitComposer() {
+        msg.style.height = 'auto';
+        msg.style.height = Math.min(msg.scrollHeight + 2, 120) + 'px';
+      }
+
+      composer.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        var text = msg.value.trim();
+        if (!text || !chat.live || chat.sending || msg.disabled) return;
+        note(chatError, '');
+        msg.value = '';
+        fitComposer();
+        var pending = chat.send(text);
+        refresh();
+        try {
+          await pending;
+        } catch (err) {
+          if (authFailed(err)) return;
+          if (!msg.value) msg.value = text;
+          fitComposer();
+          note(chatError, 'Message not sent: ' + err.message, 'error');
+        } finally {
+          refresh();
+          if (!msg.disabled) msg.focus();
+        }
+      });
+
+      msg.addEventListener('input', fitComposer);
+      msg.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+          event.preventDefault();
+          if (composer.requestSubmit) composer.requestSubmit();
+          else sendBtn.click();
+        }
+      });
+
+      $('#hangup').addEventListener('click', function () {
+        callbar.stop().then(function () {
+          showContact();
+          if (chat.live) note(chatError, 'Call ended. The session is still open: write, or end it.', 'info');
+        });
+      });
+
+      window.addEventListener('kameen:call-ended', function () {
+        showContact();
+      });
+      window.addEventListener('kameen:call-error', function (event) {
+        if (chat.live) note(chatError, 'Voice problem: ' + voiceErrorText({ message: event.detail && event.detail.message }), 'error');
+      });
+
+      killBtn.addEventListener('click', async function () {
+        if (!chat.live || killing) return;
+        killing = true;
+        refresh();
+        try {
+          await chat.kill();
+        } catch (err) {
+          if (authFailed(err)) return;
+          note(chatError, 'Could not end the session: ' + err.message, 'error');
+        } finally {
+          killing = false;
+          refresh();
+        }
+      });
+
+      /* ---------- rating ---------- */
+
+      ratingForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        var text = ratingText.value.trim();
+        if (rated || chat.id == null) return;
+        if (!text) {
+          note(ratingNote, 'Write one line first.', 'error');
+          return;
+        }
+        rated = true;
+        refresh();
+        note(ratingNote, '');
+        try {
+          await api(sessionPath(chat.id, '/rating'), { text: text });
+          ratingText.disabled = true;
+          note(ratingNote, 'Rating sent. Thank you.', 'ok');
+        } catch (err) {
+          rated = false;
+          refresh();
+          if (authFailed(err)) return;
+          note(ratingNote, 'Rating not sent: ' + err.message, 'error');
+        }
+      });
+
+      /* ---------- personas ---------- */
+
+      function renderPersonas() {
+        clearNode(personasEl);
+        if (!personas.length) {
+          personasEl.appendChild(h('p', { class: 'empty', text: 'The server has no personas yet.' }));
+          return;
+        }
+        personas.forEach(function (persona, index) {
+          var sub = [];
+          if (persona.age != null && persona.age !== '') sub.push('Age ' + persona.age);
+          if (persona.language) sub.push(Array.isArray(persona.language) ? persona.language.join(', ') : String(persona.language));
+          var body = h('span', { class: 'choice-body' }, [
+            setText(h('span', { class: 'choice-title' }), persona.name || String(persona.id)),
+            sub.length ? setText(h('span', { class: 'choice-sub' }), sub.join(', ')) : null,
+            persona.background ? setText(h('span', { class: 'choice-text' }), persona.background) : null
+          ]);
+          var radio = h('input', { type: 'radio', name: 'persona', value: String(persona.id) });
+          if (index === 0) radio.checked = true;
+          radio.addEventListener('change', showContact);
+          personasEl.appendChild(h('label', { class: 'choice' }, [radio, body]));
+        });
+      }
+
+      $all('input[name="skin"]').forEach(function (radio) {
+        radio.addEventListener('change', showContact);
+      });
+
+      async function loadPersonas() {
+        try {
+          var data = await apiGet('/cards');
+          personas = (data && data.personas) || [];
+          renderPersonas();
+          showContact();
+        } catch (err) {
+          if (authFailed(err)) return;
+          clearNode(personasEl);
+          personasEl.appendChild(h('p', { class: 'note', 'data-kind': 'error', text: 'Could not load personas: ' + err.message }));
+        }
+        refresh();
+      }
+
+      /* ---------- boot ---------- */
+
+      setHint(transcript, 'Pick who answers and start a session. In text, you write first.');
+      refresh();
+      wakeServer(statusEl).then(function (ok) {
+        ready = ok;
+        refresh();
+        if (ok) loadPersonas();
+        else {
+          clearNode(personasEl);
+          personasEl.appendChild(h('p', { class: 'note', 'data-kind': 'error', text: 'The server did not answer. Reload the page to try again.' }));
+        }
+      });
+
+      window.addEventListener('pagehide', function () {
+        chat.closeStream();
+        if (window.kameenVoice) window.kameenVoice.endCall();
+      });
+    })();
+  </script>
+</body>
+</html>

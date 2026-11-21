@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Dashboard - Kameen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300..700&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script>requireCode();</script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"
+          integrity="sha512-EY3U1MWdgKx0P1dqTE4inlKz2cpXtWpsR1YUyD855Hs6RL/A0cyvrKh60EpE8wDZ814cTe1KgRK+sG0Rn792vQ=="
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="index.html">
+        <span class="brand-latin">Kameen</span>
+        <span class="brand-arabic" lang="ar" dir="rtl">كمين</span>
+      </a>
+      <nav class="topnav" aria-label="Sections">
+        <a href="decoy.html">Play the scammer</a>
+        <a href="drill.html">Test yourself</a>
+        <a href="dashboard.html">Dashboard</a>
+      </nav>
+      <span class="status-pill" id="status" role="status" data-state="waking">Waking up Kameen...</span>
+    </header>
+
+    <main>
+      <h1 class="sr-only">Dashboard</h1>
+
+      <div class="tabs" role="tablist" aria-label="Dashboard sections">
+        <button type="button" class="tab" role="tab" id="tabbtn-sessions" data-tab="sessions" aria-controls="tab-sessions" aria-selected="true">Sessions</button>
+        <button type="button" class="tab" role="tab" id="tabbtn-campaigns" data-tab="campaigns" aria-controls="tab-campaigns" aria-selected="false" tabindex="-1">Campaigns</button>
+        <button type="button" class="tab" role="tab" id="tabbtn-drills" data-tab="drills" aria-controls="tab-drills" aria-selected="false" tabindex="-1">Drills</button>
+        <button type="button" class="tab" role="tab" id="tabbtn-evidence" data-tab="evidence" aria-controls="tab-evidence" aria-selected="false" tabindex="-1">Evidence</button>
+      </div>
+
+      <!-- Sessions -->
+      <section id="tab-sessions" role="tabpanel" aria-labelledby="tabbtn-sessions">
+        <div class="tab-head">
+          <p>Every decoy and drill session, newest first. The list updates every 5 seconds. Select a row to open it.</p>
+          <span class="small" id="sessions-updated" role="status"></span>
+        </div>
+        <p class="note" id="sessions-error" role="alert" hidden></p>
+        <div class="table-wrap" id="sessions-wrap">
+          <table class="table table--rows">
+            <thead>
+              <tr>
+                <th scope="col">Started</th>
+                <th scope="col">Mode</th>
+                <th scope="col">Persona or scenario</th>
+                <th scope="col" class="hide-narrow">Channel</th>
+                <th scope="col">Stage</th>
+                <th scope="col">Status</th>
+                <th scope="col" class="num hide-narrow">Turns</th>
+                <th scope="col" class="num">Intel</th>
+              </tr>
+            </thead>
+            <tbody id="sessions-body"></tbody>
+          </table>
+        </div>
+        <p class="empty" id="sessions-empty" style="margin-top: 0.75rem;">Loading sessions...</p>
+
+        <div class="detail" id="detail" hidden>
+          <div class="detail-head">
+            <h2 id="detail-title" tabindex="-1"></h2>
+            <span class="chip" id="detail-mode"></span>
+            <span class="stage-chip" id="detail-stage"></span>
+            <span class="chip" id="detail-status"></span>
+            <a class="btn btn-small" id="detail-evidence" target="_blank" rel="noopener">Evidence pack</a>
+            <button type="button" class="btn btn-small btn-quiet" id="detail-close">Close</button>
+          </div>
+          <p class="detail-meta" id="detail-meta"></p>
+          <p class="note" id="detail-error" role="alert" hidden></p>
+
+          <div class="detail-grid">
+            <div>
+              <h3 class="section-title">Transcript</h3>
+              <div class="log-frame">
+                <div class="transcript" id="detail-transcript" role="log" aria-label="Transcript" tabindex="0"></div>
+              </div>
+            </div>
+            <div class="stack-l">
+              <div>
+                <h3 class="section-title">Intel <span class="count" id="detail-intel-count"></span></h3>
+                <ul class="intel-list" id="detail-intel"></ul>
+                <p class="empty" id="detail-intel-empty">Nothing captured yet.</p>
+              </div>
+              <div id="detail-canary-block" hidden>
+                <h3 class="section-title">Canaries handed out</h3>
+                <ul class="intel-list" id="detail-canaries"></ul>
+              </div>
+              <div id="detail-drill-block" hidden>
+                <h3 class="section-title">Drill result</h3>
+                <p><span class="outcome" id="detail-outcome"></span> <span class="small" id="detail-turns"></span></p>
+              </div>
+              <div>
+                <h3 class="section-title">Live events</h3>
+                <ul class="live-log" id="detail-log" aria-live="polite"></ul>
+                <p class="empty" id="detail-log-empty">Listening. New events for this session appear here.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Campaigns -->
+      <section id="tab-campaigns" role="tabpanel" aria-labelledby="tabbtn-campaigns" hidden>
+        <div class="tab-head">
+          <p>Sessions that share an account number, phone number or link are joined into one campaign.</p>
+          <button type="button" class="btn btn-small" id="campaigns-refresh" disabled>Refresh</button>
+        </div>
+        <p class="note" id="campaigns-error" role="alert" hidden></p>
+        <div class="figures" id="campaigns-figures"></div>
+        <div id="graph-area">
+          <div class="legend">
+            <span><i></i>Session</span>
+            <span><i class="is-intel"></i>Intel item</span>
+          </div>
+          <div class="graph" id="graph" role="img" aria-label="Graph of sessions and the intel items they share"></div>
+          <div class="actions" style="margin-top: 0.6rem;">
+            <button type="button" class="btn btn-small" id="graph-in">Zoom in</button>
+            <button type="button" class="btn btn-small" id="graph-out">Zoom out</button>
+            <button type="button" class="btn btn-small" id="graph-fit">Fit</button>
+            <span class="small" id="graph-pick" role="status">Select a node to see what it is.</span>
+          </div>
+        </div>
+        <p class="empty" id="campaigns-empty" hidden>Nothing to link yet. Campaigns appear once two sessions share the same intel.</p>
+      </section>
+
+      <!-- Drills -->
+      <section id="tab-drills" role="tabpanel" aria-labelledby="tabbtn-drills" hidden>
+        <div class="tab-head">
+          <p>How people did in drills. Results are counted by group, never by person.</p>
+          <button type="button" class="btn btn-small" id="drills-refresh" disabled>Refresh</button>
+        </div>
+        <p class="note" id="drills-error" role="alert" hidden></p>
+        <div id="drills-body" class="stack-l" hidden>
+          <div class="figures" id="drills-figures"></div>
+          <div>
+            <h2 class="section-title">By outcome</h2>
+            <div class="bars" id="drills-outcomes"></div>
+          </div>
+          <div class="split">
+            <div>
+              <h2 class="section-title">By scenario</h2>
+              <div class="table-wrap table-plain">
+                <table class="table">
+                  <thead><tr><th scope="col">Scenario</th><th scope="col" class="num">Drills</th><th scope="col" class="num">At risk</th></tr></thead>
+                  <tbody id="drills-scenarios"></tbody>
+                </table>
+              </div>
+            </div>
+            <div>
+              <h2 class="section-title">By group</h2>
+              <div class="table-wrap table-plain">
+                <table class="table">
+                  <thead><tr><th scope="col">Group</th><th scope="col" class="num">Drills</th><th scope="col" class="num">At risk</th></tr></thead>
+                  <tbody id="drills-groups"></tbody>
+                </table>
+              </div>
+              <p class="small" id="drills-min" style="margin-top: 0.5rem;" hidden></p>
+            </div>
+          </div>
+        </div>
+        <p class="empty" id="drills-empty">Loading drill results...</p>
+      </section>
+
+      <!-- Evidence -->
+      <section id="tab-evidence" role="tabpanel" aria-labelledby="tabbtn-evidence" hidden>
+        <div class="tab-head">
+          <p id="eval-line">Results of the latest automated test run against Kameen.</p>
+          <button type="button" class="btn btn-small" id="eval-refresh" disabled>Refresh</button>
+        </div>
+        <p class="note" id="eval-error" role="alert" hidden></p>
+        <div class="figures" id="eval-metrics"></div>
+        <p class="empty" id="eval-empty">Loading test results...</p>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+      if (!getStored('code')) return;
+      markNav();
+
+      var POLL_MS = 5000;
+      var OUTCOME_ORDER = ['resisted', 'hesitated', 'would_comply', 'attempted_disclosure', 'distress'];
+
+      var statusEl = $('#status');
+      var ready = false;
+      var activeTab = 'sessions';
+      var personaNames = {};
+      var scenarioTitles = {};
+
+      function tile(name, value, foot) {
+        return h('div', { class: 'figure-tile' }, [
+          setText(h('span', { class: 'figure-name' }), name),
+          setText(h('span', { class: 'figure-value' }), value),
+          foot ? h('span', { class: 'figure-foot' }, foot) : null
+        ]);
+      }
+
+      function showNumber(value) {
+        if (typeof value === 'number' && isFinite(value)) {
+          return Number.isInteger(value) ? String(value) : String(Math.round(value * 1000) / 1000);
+        }
+        return value == null ? '' : String(value);
+      }
+
+      /* ================================================================ tabs */
+
+      var tabButtons = $all('.tab');
+
+      function openTab(name, focus) {
+        activeTab = name;
+        tabButtons.forEach(function (button) {
+          var on = button.dataset.tab === name;
+          button.setAttribute('aria-selected', on ? 'true' : 'false');
+          button.tabIndex = on ? 0 : -1;
+          $('#tab-' + button.dataset.tab).hidden = !on;
+          if (on && focus) button.focus();
+        });
+        if (!ready) return;
+        if (name === 'sessions') loadSessions();
+        else if (name === 'campaigns') loadCampaigns();
+        else if (name === 'drills') loadDrills();
+        else if (name === 'evidence') loadEval();
+      }
+
+      tabButtons.forEach(function (button, index) {
+        button.addEventListener('click', function () { openTab(button.dataset.tab); });
+        button.addEventListener('keydown', function (event) {
+          var step = event.key === 'ArrowRight' ? 1 : (event.key === 'ArrowLeft' ? -1 : 0);
+          if (!step) return;
+          event.preventDefault();
+          var next = tabButtons[(index + step + tabButtons.length) % tabButtons.length];
+          openTab(next.dataset.tab, true);
+        });
+      });
+
+      /* ================================================================ sessions */
+
+      var sessionsBody = $('#sessions-body');
+      var sessionsEmpty = $('#sessions-empty');
+      var sessionsError = $('#sessions-error');
+      var sessionsUpdated = $('#sessions-updated');
+      var sessions = [];
+      var sessionsSignature = null;
+      var loadingSessions = false;
+      var selectedId = null;
+
+      function whoFor(session) {
+        if (session.mode === 'drill') {
+          var sid = session.scenario_id;
+          return sid == null ? 'Drill' : (scenarioTitles[String(sid)] || String(sid));
+        }
+        var pid = session.persona_id;
+        return pid == null ? 'Decoy' : (personaNames[String(pid)] || String(pid));
+      }
+
+      function statusChip(status) {
+        var chip = h('span', { class: 'chip', text: humanize(status || 'unknown') });
+        if (status === 'active') chip.dataset.tone = 'live';
+        return chip;
+      }
+
+      function modeChip(mode) {
+        var chip = h('span', { class: 'chip', text: humanize(mode || 'unknown') });
+        if (mode === 'decoy' || mode === 'drill') chip.dataset.tone = mode;
+        return chip;
+      }
+
+      function markSelected() {
+        $all('tr', sessionsBody).forEach(function (row) {
+          row.setAttribute('aria-selected', row.dataset.id === String(selectedId) ? 'true' : 'false');
+        });
+      }
+
+      function renderSessions() {
+        var focused = document.activeElement && sessionsBody.contains(document.activeElement)
+          ? document.activeElement.dataset.id : null;
+        clearNode(sessionsBody);
+        sessions.forEach(function (session) {
+          var row = h('tr', { tabindex: '0', 'data-id': String(session.id) }, [
+            h('td', { text: formatDateTime(session.started_at) }),
+            h('td', null, modeChip(session.mode)),
+            setText(h('td'), whoFor(session)),
+            h('td', { class: 'hide-narrow', text: humanize(session.channel) }),
+            setText(h('td'), session.stage == null ? '' : String(session.stage)),
+            h('td', null, statusChip(session.status)),
+            h('td', { class: 'num hide-narrow', text: showNumber(session.turn_count) }),
+            h('td', { class: 'num', text: showNumber(session.intel_count) })
+          ]);
+          row.setAttribute('aria-label', 'Open session: ' + whoFor(session) + ', ' + formatDateTime(session.started_at));
+          row.addEventListener('click', function () { selectSession(session.id, false); });
+          row.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              selectSession(session.id, true);
+            }
+          });
+          sessionsBody.appendChild(row);
+        });
+        $('#sessions-wrap').hidden = sessions.length === 0;
+        note(sessionsEmpty, sessions.length ? '' : 'No sessions yet. Start one from Play the scammer or Test yourself.');
+        markSelected();
+        if (focused != null) {
+          var again = $all('tr', sessionsBody).filter(function (row) { return row.dataset.id === focused; })[0];
+          if (again) again.focus({ preventScroll: true });
+        }
+      }
+
+      async function loadSessions() {
+        if (loadingSessions) return;
+        loadingSessions = true;
+        try {
+          var data = await apiGet('/sessions');
+          var list = ((data && data.sessions) || []).slice();
+          list.sort(function (a, b) { return (Number(b.started_at) || 0) - (Number(a.started_at) || 0); });
+          var signature = JSON.stringify(list) + '|' + Object.keys(personaNames).length + '|' + Object.keys(scenarioTitles).length;
+          sessions = list;
+          if (signature !== sessionsSignature) {
+            sessionsSignature = signature;
+            renderSessions();
+          }
+          note(sessionsError, '');
+          sessionsUpdated.textContent = 'Updated ' + formatTime(Date.now());
+          /* keep an open, still-active session fresh even if a live event was missed */
+          if (selectedId != null && detailStatus === 'active') refreshDetail();
+        } catch (err) {
+          if (authFailed(err)) return;
+          note(sessionsError, 'Could not load sessions: ' + err.message, 'error');
+          if (sessionsSignature === null) note(sessionsEmpty, '');
+        } finally {
+          loadingSessions = false;
+        }
+      }
+
+      setInterval(function () {
+        if (ready && activeTab === 'sessions' && !document.hidden) loadSessions();
+      }, POLL_MS);
+
+      /* ---------- one session ---------- */
+
+      var detailEl = $('#detail');
+      var detailTitle = $('#detail-title');
+      var detailError = $('#detail-error');
+      var detailTranscript = $('#detail-transcript');
+      var detailLog = $('#detail-log');
+      var detailStream = null;
+      var detailStatus = '';
+      var detailMode = '';
+      var detailAgentName = '';
+      var detailSeq = 0;
+      var shownMessages = 0;
+      var refreshTimer = null;
+
+      function closeDetailStream() {
+        clearTimeout(refreshTimer);
+        if (detailStream) {
+          detailStream.close();
+          detailStream = null;
+        }
+      }
+
+      function speakerName(speaker) {
+        if (speaker === 'agent') return detailMode === 'drill' ? 'Kameen as the scammer' : (detailAgentName || 'Kameen as the victim');
+        return detailMode === 'drill' ? 'Trainee' : 'Scammer';
+      }
+
+      function setDetailStage(stage) {
+        var chip = $('#detail-stage');
+        chip.hidden = stage == null || stage === '';
+        setText(chip, stage == null ? '' : String(stage));
+      }
+
+      function setDetailStatus(status) {
+        detailStatus = status || '';
+        var chip = $('#detail-status');
+        chip.textContent = humanize(status || 'unknown');
+        if (status === 'active') chip.dataset.tone = 'live';
+        else delete chip.dataset.tone;
+      }
+
+      function renderDetail(data, first) {
+        var conv = (data && data.conversation) || {};
+        detailMode = conv.mode || '';
+        detailAgentName = conv.persona_id != null ? (personaNames[String(conv.persona_id)] || '') : '';
+        setText(detailTitle, whoFor(conv));
+
+        var modeEl = $('#detail-mode');
+        modeEl.textContent = humanize(conv.mode || 'unknown');
+        if (conv.mode === 'decoy' || conv.mode === 'drill') modeEl.dataset.tone = conv.mode;
+        else delete modeEl.dataset.tone;
+        setDetailStage(conv.stage);
+        setDetailStatus(conv.status);
+
+        var meta = [];
+        if (conv.started_at != null) meta.push('Started ' + formatDateTime(conv.started_at));
+        if (conv.channel) meta.push('Channel: ' + humanize(conv.channel));
+        if (conv.turn_count != null) meta.push('Turns: ' + conv.turn_count);
+        if (conv.director_note) meta.push('Director note: ' + conv.director_note);
+        setText($('#detail-meta'), meta.join('. '));
+
+        var messages = (data && data.messages) || [];
+        if (messages.length < shownMessages) {
+          clearNode(detailTranscript);
+          shownMessages = 0;
+        }
+        for (var i = shownMessages; i < messages.length; i++) {
+          var m = messages[i] || {};
+          if (m.text == null || String(m.text).trim() === '') continue;
+          addBubble(detailTranscript, m.speaker, m.text, {
+            name: speakerName(m.speaker),
+            time: m.created_at,
+            stick: first
+          });
+        }
+        shownMessages = messages.length;
+        if (!detailTranscript.firstChild) setHint(detailTranscript, 'No messages yet.');
+
+        var intel = (data && data.intel) || [];
+        var intelList = $('#detail-intel');
+        clearNode(intelList);
+        intel.forEach(function (item) { intelList.appendChild(renderIntelCard(item, { detail: true })); });
+        $('#detail-intel-count').textContent = intel.length ? String(intel.length) : '';
+        $('#detail-intel-empty').hidden = intel.length > 0;
+
+        var canaries = (data && data.canaries) || [];
+        var canaryList = $('#detail-canaries');
+        clearNode(canaryList);
+        canaries.forEach(function (item) { canaryList.appendChild(renderCanary(item)); });
+        $('#detail-canary-block').hidden = canaries.length === 0;
+
+        var result = data && data.drill_result;
+        $('#detail-drill-block').hidden = !result;
+        if (result) {
+          var outcomeEl = $('#detail-outcome');
+          outcomeEl.textContent = labelFor(OUTCOME_LABELS, result.outcome);
+          outcomeEl.dataset.outcome = String(result.outcome || '');
+          $('#detail-turns').textContent = result.turns != null ? 'after ' + result.turns + (Number(result.turns) === 1 ? ' turn' : ' turns') : '';
+        }
+      }
+
+      async function refreshDetail(first) {
+        var id = selectedId;
+        if (id == null) return;
+        var seq = ++detailSeq;
+        try {
+          var data = await apiGet(sessionPath(id));
+          if (seq !== detailSeq || selectedId !== id) return;
+          note(detailError, '');
+          renderDetail(data, first);
+        } catch (err) {
+          if (authFailed(err)) return;
+          if (seq !== detailSeq || selectedId !== id) return;
+          note(detailError, 'Could not load this session: ' + err.message, 'error');
+        }
+      }
+
+      function scheduleRefresh() {
+        clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(function () { refreshDetail(false); }, 300);
+      }
+
+      function logLine(text) {
+        var line = h('li', null, [
+          h('time', { text: formatTime(Date.now()) }),
+          setText(h('span'), text)
+        ]);
+        detailLog.insertBefore(line, detailLog.firstChild);
+        while (detailLog.children.length > 60) detailLog.removeChild(detailLog.lastChild);
+        $('#detail-log-empty').hidden = true;
+      }
+
+      /* Live events prompt a re-read of the stored session, so the transcript shown here
+         always matches the record, however the stream behaves. */
+      function onDetailEvent(ev) {
+        if (!ev || typeof ev !== 'object') return;
+        if (ev.type === 'message') {
+          if (ev.speaker !== 'agent' && ev.speaker !== 'counterpart') return;
+          logLine('Message from ' + speakerName(ev.speaker).toLowerCase());
+        } else if (ev.type === 'intel') {
+          var intel = ev.intel || {};
+          logLine('Intel captured: ' + labelFor(INTEL_LABELS, intel.type || 'intel') + ' ' + (intel.value == null ? '' : intel.value));
+        } else if (ev.type === 'stage') {
+          setDetailStage(ev.stage);
+          logLine('Stage: ' + ev.stage + (ev.note ? '. ' + ev.note : ''));
+        } else if (ev.type === 'guard') {
+          logLine('Guardrail: ' + labelFor(GUARD_LABELS, ev.event));
+        } else if (ev.type === 'drill_outcome') {
+          logLine('Drill outcome: ' + labelFor(OUTCOME_LABELS, ev.outcome));
+        } else if (ev.type === 'ended') {
+          setDetailStatus('ended');
+          logLine('Session ended' + (ev.reason ? ': ' + humanize(ev.reason) : ''));
+          loadSessions();
+        } else {
+          return;
+        }
+        scheduleRefresh();
+      }
+
+      async function selectSession(id, moveFocus) {
+        closeDetailStream();
+        selectedId = id;
+        markSelected();
+        shownMessages = 0;
+        detailStatus = '';
+        clearNode(detailTranscript);
+        clearNode(detailLog);
+        $('#detail-log-empty').hidden = false;
+        setText(detailTitle, 'Loading session...');
+        $('#detail-evidence').href = evidenceUrl(id);
+        detailEl.hidden = false;
+        await refreshDetail(true);
+        if (selectedId !== id) return;
+        detailStream = watch(id, function (ev) {
+          if (selectedId === id) onDetailEvent(ev);
+        });
+        if (moveFocus) detailTitle.focus({ preventScroll: true });
+        detailEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+
+      $('#detail-close').addEventListener('click', function () {
+        closeDetailStream();
+        var id = selectedId;
+        selectedId = null;
+        detailSeq++;
+        detailEl.hidden = true;
+        markSelected();
+        var row = $all('tr', sessionsBody).filter(function (r) { return r.dataset.id === String(id); })[0];
+        if (row) row.focus();
+      });
+
+      /* ================================================================ campaigns */
+
+      var campaignsRefresh = $('#campaigns-refresh');
+      var campaignsError = $('#campaigns-error');
+      var graphEl = $('#graph');
+      var graphPick = $('#graph-pick');
+      var cy = null;
+      var lastGraph = null;
+      var loadingCampaigns = false;
+
+      function cssVar(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      }
+
+      /* Resolves once the page (and with it the deferred graph library) has loaded, or after 6 s. */
+      function pageLoaded() {
+        return new Promise(function (resolve) {
+          if (document.readyState === 'complete' || typeof window.cytoscape === 'function') {
+            resolve();
+            return;
+          }
+          window.addEventListener('load', resolve, { once: true });
+          setTimeout(resolve, 6000);
+        });
+      }
+
+      function drawGraph(data) {
+        var nodes = (data && data.nodes) || [];
+        var edges = (data && data.edges) || [];
+        var known = {};
+        var elements = [];
+        var sessionCount = 0;
+        var intelCount = 0;
+
+        nodes.forEach(function (node) {
+          if (!node || node.id == null) return;
+          var id = String(node.id);
+          if (known[id]) return;
+          known[id] = true;
+          var kind = node.kind === 'intel' ? 'intel' : 'conversation';
+          if (kind === 'intel') intelCount++; else sessionCount++;
+          elements.push({ group: 'nodes', data: {
+            id: id,
+            label: String(node.label == null ? id : node.label),
+            kind: kind,
+            type: node.type == null ? '' : String(node.type)
+          } });
+        });
+        edges.forEach(function (edge, index) {
+          if (!edge) return;
+          var source = String(edge.source);
+          var target = String(edge.target);
+          if (!known[source] || !known[target]) return;
+          elements.push({ group: 'edges', data: { id: 'kameen-edge-' + index, source: source, target: target } });
+        });
+
+        var figures = $('#campaigns-figures');
+        clearNode(figures);
+        figures.appendChild(tile('Linked campaigns', showNumber(data && data.campaigns != null ? data.campaigns : 0)));
+        figures.appendChild(tile('Sessions in the graph', String(sessionCount)));
+        figures.appendChild(tile('Intel items', String(intelCount)));
+
+        if (cy) {
+          cy.destroy();
+          cy = null;
+        }
+        graphPick.textContent = 'Select a node to see what it is.';
+        var empty = elements.length === 0;
+        $('#graph-area').hidden = empty;
+        $('#campaigns-empty').hidden = !empty;
+        if (empty) return;
+
+        if (typeof window.cytoscape !== 'function') {
+          $('#graph-area').hidden = true;
+          note(campaignsError, 'The graph library did not load, so the graph cannot be drawn. The counts above are still correct.', 'error');
+          return;
+        }
+
+        cy = window.cytoscape({
+          container: graphEl,
+          elements: elements,
+          userZoomingEnabled: false,
+          minZoom: 0.2,
+          maxZoom: 4,
+          style: [
+            { selector: 'node', style: {
+              'label': 'data(label)',
+              'color': cssVar('--ink'),
+              'font-family': 'Readex Pro, Segoe UI, system-ui, sans-serif',
+              'font-size': 11,
+              'text-valign': 'bottom',
+              'text-margin-y': 6,
+              'text-wrap': 'ellipsis',
+              'text-max-width': 130,
+              'border-width': 0
+            } },
+            { selector: 'node[kind = "conversation"]', style: {
+              'shape': 'round-rectangle',
+              'width': 24,
+              'height': 24,
+              'background-color': cssVar('--petrol')
+            } },
+            { selector: 'node[kind = "intel"]', style: {
+              'shape': 'ellipse',
+              'width': 18,
+              'height': 18,
+              'background-color': cssVar('--amber')
+            } },
+            { selector: 'edge', style: {
+              'width': 1.5,
+              'line-color': cssVar('--ink-soft'),
+              'opacity': 0.55,
+              'curve-style': 'straight'
+            } },
+            { selector: 'node:selected', style: {
+              'border-width': 3,
+              'border-color': cssVar('--ink')
+            } }
+          ],
+          layout: { name: 'cose', animate: false, padding: 36, nodeDimensionsIncludeLabels: true }
+        });
+
+        cy.on('tap', 'node', function (event) {
+          var node = event.target;
+          var links = node.degree(false);
+          if (node.data('kind') === 'intel') {
+            graphPick.textContent = labelFor(INTEL_LABELS, node.data('type') || 'intel') + ': ' + node.data('label') +
+              '. Seen in ' + links + (links === 1 ? ' session.' : ' sessions.');
+          } else {
+            graphPick.textContent = 'Session: ' + node.data('label') + '. Linked to ' + links + (links === 1 ? ' intel item.' : ' intel items.');
+          }
+        });
+      }
+
+      async function loadCampaigns() {
+        if (loadingCampaigns) return;
+        loadingCampaigns = true;
+        campaignsRefresh.disabled = true;
+        note(campaignsError, '');
+        try {
+          var data = await apiGet('/campaigns');
+          await pageLoaded(); /* the graph library is a deferred script: it has run by now, or it failed */
+          lastGraph = data || {};
+          if (activeTab === 'campaigns') drawGraph(lastGraph);
+        } catch (err) {
+          if (authFailed(err)) return;
+          note(campaignsError, 'Could not load campaigns: ' + err.message, 'error');
+        } finally {
+          loadingCampaigns = false;
+          campaignsRefresh.disabled = !ready;
+        }
+      }
+
+      campaignsRefresh.addEventListener('click', loadCampaigns);
+
+      function zoomGraph(factor) {
+        if (!cy) return;
+        cy.zoom({ level: cy.zoom() * factor, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
+      }
+      $('#graph-in').addEventListener('click', function () { zoomGraph(1.3); });
+      $('#graph-out').addEventListener('click', function () { zoomGraph(1 / 1.3); });
+      $('#graph-fit').addEventListener('click', function () { if (cy) cy.fit(undefined, 36); });
+
+      if (window.matchMedia) {
+        var scheme = window.matchMedia('(prefers-color-scheme: dark)');
+        var redraw = function () { if (lastGraph && activeTab === 'campaigns') drawGraph(lastGraph); };
+        if (scheme.addEventListener) scheme.addEventListener('change', redraw);
+      }
+
+      /* ================================================================ drills */
+
+      var drillsRefresh = $('#drills-refresh');
+      var drillsError = $('#drills-error');
+      var loadingDrills = false;
+
+      function riskCell(total, atRisk) {
+        var t = Number(total) || 0;
+        var r = Number(atRisk) || 0;
+        return showNumber(atRisk == null ? 0 : atRisk) + (t > 0 ? ' (' + Math.round((r / t) * 100) + '%)' : '');
+      }
+
+      function fillRiskTable(body, rows, nameOf, emptyText) {
+        clearNode(body);
+        if (!rows.length) {
+          body.appendChild(h('tr', null, h('td', { colspan: '3', class: 'empty', text: emptyText })));
+          return;
+        }
+        rows.forEach(function (row) {
+          body.appendChild(h('tr', null, [
+            setText(h('td'), nameOf(row)),
+            h('td', { class: 'num', text: showNumber(row.total) }),
+            h('td', { class: 'num', text: riskCell(row.total, row.at_risk) })
+          ]));
+        });
+      }
+
+      function renderDrills(data) {
+        data = data || {};
+        var total = Number(data.total) || 0;
+        var byOutcome = data.by_outcome || {};
+
+        var figures = $('#drills-figures');
+        clearNode(figures);
+        figures.appendChild(tile('Drills completed', showNumber(data.total == null ? 0 : data.total)));
+
+        var keys = OUTCOME_ORDER.slice();
+        Object.keys(byOutcome).forEach(function (key) { if (keys.indexOf(key) === -1) keys.push(key); });
+        var max = 0;
+        keys.forEach(function (key) { max = Math.max(max, Number(byOutcome[key]) || 0); });
+
+        var bars = $('#drills-outcomes');
+        clearNode(bars);
+        keys.forEach(function (key) {
+          var count = Number(byOutcome[key]) || 0;
+          var fill = h('span', { class: 'bar-fill' });
+          fill.style.width = max > 0 ? (count / max) * 100 + '%' : '0%';
+          if (count === 0) fill.style.minWidth = '0';
+          bars.appendChild(h('div', { class: 'bar-row', 'data-outcome': key }, [
+            h('span', { text: labelFor(OUTCOME_LABELS, key) }),
+            h('span', { class: 'bar-track' }, fill),
+            h('span', { class: 'bar-count', text: String(count) })
+          ]));
+        });
+
+        fillRiskTable($('#drills-scenarios'), data.by_scenario || [], function (row) {
+          return row.title || (row.scenario_id == null ? '' : String(row.scenario_id));
+        }, 'No drills yet.');
+        fillRiskTable($('#drills-groups'), data.by_group || [], function (row) {
+          return row.group == null ? '' : String(row.group);
+        }, 'No group is large enough to show yet.');
+
+        note($('#drills-min'), data.min_group != null ? 'Groups below the minimum size of ' + data.min_group + ' are not listed, so no one can be singled out.' : '');
+        $('#drills-body').hidden = false;
+        note($('#drills-empty'), total === 0 ? 'No drills have been completed yet.' : '');
+      }
+
+      async function loadDrills() {
+        if (loadingDrills) return;
+        loadingDrills = true;
+        drillsRefresh.disabled = true;
+        note(drillsError, '');
+        try {
+          renderDrills(await apiGet('/drills/summary'));
+        } catch (err) {
+          if (authFailed(err)) return;
+          note($('#drills-empty'), '');
+          note(drillsError, 'Could not load drill results: ' + err.message, 'error');
+        } finally {
+          loadingDrills = false;
+          drillsRefresh.disabled = !ready;
+        }
+      }
+
+      drillsRefresh.addEventListener('click', loadDrills);
+
+      /* ================================================================ evidence */
+
+      var evalRefresh = $('#eval-refresh');
+      var evalError = $('#eval-error');
+      var loadingEval = false;
+
+      function renderEval(data) {
+        var metrics = data && Array.isArray(data.metrics) ? data.metrics : [];
+        var box = $('#eval-metrics');
+        clearNode(box);
+        if (!metrics.length) {
+          $('#eval-line').textContent = 'Results of the latest automated test run against Kameen.';
+          note($('#eval-empty'), 'No test run uploaded yet');
+          return;
+        }
+        note($('#eval-empty'), '');
+        var passed = metrics.filter(function (m) { return m && m.pass === true; }).length;
+        setText($('#eval-line'), 'Latest test run' + (data.date ? ', ' + data.date : '') + '. ' + passed + ' of ' + metrics.length + ' targets met.');
+        metrics.forEach(function (metric) {
+          metric = metric || {};
+          var name = String(metric.name == null ? '' : metric.name);
+          var foot = [];
+          if (metric.target != null && metric.target !== '') foot.push(h('span', { text: 'Target ' + showNumber(metric.target) }));
+          if (metric.pass === true || metric.pass === false) {
+            foot.push(h('span', { class: 'chip', 'data-tone': metric.pass ? 'pass' : 'fail', text: metric.pass ? 'Pass' : 'Fail' }));
+          }
+          var card = tile(/\s/.test(name) ? name : humanize(name), showNumber(metric.value), foot.length ? foot : null);
+          if (metric.pass === false) card.dataset.pass = 'false';
+          box.appendChild(card);
+        });
+      }
+
+      async function loadEval() {
+        if (loadingEval) return;
+        loadingEval = true;
+        evalRefresh.disabled = true;
+        note(evalError, '');
+        try {
+          renderEval(await apiGet('/eval/latest'));
+        } catch (err) {
+          if (authFailed(err)) return;
+          note($('#eval-empty'), '');
+          note(evalError, 'Could not load test results: ' + err.message, 'error');
+        } finally {
+          loadingEval = false;
+          evalRefresh.disabled = !ready;
+        }
+      }
+
+      evalRefresh.addEventListener('click', loadEval);
+
+      /* ================================================================ boot */
+
+      async function loadNames() {
+        try {
+          var cards = await apiGet('/cards');
+          ((cards && cards.personas) || []).forEach(function (p) { if (p && p.id != null) personaNames[String(p.id)] = String(p.name || p.id); });
+          ((cards && cards.scenarios) || []).forEach(function (s) { if (s && s.id != null) scenarioTitles[String(s.id)] = String(s.title || s.id); });
+        } catch (err) {
+          authFailed(err); /* names are a nicety: ids are shown without them */
+        }
+      }
+
+      wakeServer(statusEl).then(async function (ok) {
+        ready = ok;
+        if (!ok) {
+          note(sessionsEmpty, '');
+          note(sessionsError, 'The server did not answer. Reload the page to try again.', 'error');
+          return;
+        }
+        campaignsRefresh.disabled = false;
+        drillsRefresh.disabled = false;
+        evalRefresh.disabled = false;
+        await loadNames();
+        openTab(activeTab);
+      });
+
+      window.addEventListener('pagehide', closeDetailStream);
+    })();
+  </script>
+</body>
+</html>

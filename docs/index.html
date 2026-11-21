@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Kameen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300..700&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="index.html">
+        <span class="brand-latin">Kameen</span>
+        <span class="brand-arabic" lang="ar" dir="rtl">كمين</span>
+      </a>
+      <span class="status-pill" id="status" role="status" data-state="waking">Waking up Kameen...</span>
+    </header>
+
+    <main class="landing">
+      <div class="stack-l">
+        <h1 class="wordmark">
+          <span class="wordmark-latin">Kameen</span>
+          <span class="wordmark-arabic" lang="ar" dir="rtl">كمين</span>
+        </h1>
+
+        <p class="landing-lede">
+          An ambush for phone and message scams. One AI agent with two jobs: it answers scammers
+          as a believable victim and keeps them talking, or it plays the scammer so people can practise saying no.
+        </p>
+
+        <p class="notice">
+          This is a simulation. You play the scammer or the trainee. Drill secrets are masked before storage.
+        </p>
+
+        <section id="gate" class="stack" aria-labelledby="gate-title">
+          <h2 id="gate-title">Enter the access code</h2>
+          <form id="code-form" class="gate-form" novalidate>
+            <label class="field">
+              <span class="field-label">Access code</span>
+              <!-- no name attribute on purpose: the code must never end up in a URL, even if scripts fail -->
+              <input type="password" id="code" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+            </label>
+            <button type="submit" class="btn btn-primary" id="code-btn" disabled>Unlock</button>
+          </form>
+          <p class="note" id="code-error" role="alert" hidden></p>
+        </section>
+
+        <section id="modes" class="stack" aria-labelledby="modes-title" hidden>
+          <h2 id="modes-title" class="sr-only">Choose a mode</h2>
+          <div class="modes">
+            <a class="mode" href="decoy.html">
+              <span class="roles">
+                <span class="role role--agent">Kameen plays the victim</span>
+                <span class="role role--you">You play the scammer</span>
+              </span>
+              <span class="mode-title">Play the scammer</span>
+              <span class="mode-text">
+                Write or call as a scammer. Kameen answers as Rajesh, Sara or Umm Khalid, stalls you,
+                and collects every account number, phone number and link you give away.
+              </span>
+              <span class="btn btn-primary mode-go">Open the decoy</span>
+            </a>
+            <a class="mode" href="drill.html">
+              <span class="roles">
+                <span class="role role--agent">Kameen plays the scammer</span>
+                <span class="role role--you">You are the trainee</span>
+              </span>
+              <span class="mode-title">Test yourself</span>
+              <span class="mode-text">
+                With your consent, Kameen runs a scam on you. It stops before you share anything real
+                and shows you what to watch for.
+              </span>
+              <span class="btn btn-primary mode-go">Start a drill</span>
+            </a>
+          </div>
+          <div class="actions">
+            <a class="btn" href="dashboard.html">Open the dashboard</a>
+            <span class="small">Sessions, linked campaigns, drill results and test evidence.</span>
+          </div>
+          <div class="actions">
+            <button type="button" class="btn btn-quiet btn-small" id="change-code">Use a different code</button>
+          </div>
+        </section>
+      </div>
+
+      <figure class="sample" aria-label="Sample exchange">
+        <div class="phone skin-sms">
+          <div class="phone-head">
+            <span class="phone-avatar" aria-hidden="true"></span>
+            <span class="phone-who">
+              <span class="phone-name">Rajesh</span>
+              <span class="phone-sub">Text message</span>
+            </span>
+          </div>
+          <div class="transcript">
+            <div class="msg msg--counterpart"><p class="bubble">Your parcel is on hold. Pay the AED 12 customs fee today or it goes back.</p></div>
+            <div class="msg msg--agent"><p class="bubble">Oh no, that is my mother's medicine. I can pay now. My card is not working, can I do bank transfer?</p></div>
+            <div class="msg msg--counterpart"><p class="bubble">Yes. Send to AE07 0331 2345 6789 0123 456</p></div>
+            <div class="msg msg--agent"><p class="bubble">One minute sir, I am writing it down. Which name is on the account?</p></div>
+          </div>
+        </div>
+        <ul class="intel-list">
+          <li class="intel-card">
+            <span class="intel-type">IBAN</span>
+            <span class="intel-value">AE07 0331 2345 6789 0123 456</span>
+            <q class="intel-quote">Send to AE07 0331 2345 6789 0123 456</q>
+          </li>
+        </ul>
+        <figcaption class="small">A sample exchange. Every detail in it is made up.</figcaption>
+      </figure>
+    </main>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      var statusEl = $('#status');
+      var gate = $('#gate');
+      var modes = $('#modes');
+      var form = $('#code-form');
+      var input = $('#code');
+      var button = $('#code-btn');
+      var errorEl = $('#code-error');
+      var ready = false;
+      var busy = false;
+
+      var REJECTED = 'That code was not accepted. Check it and try again.';
+
+      function refresh() {
+        button.disabled = !ready || busy;
+      }
+
+      function showModes(on) {
+        modes.hidden = !on;
+        gate.hidden = on;
+      }
+
+      form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        if (!ready || busy) return;
+        var code = input.value.trim();
+        if (!code) {
+          note(errorEl, 'Enter the access code.', 'error');
+          input.focus();
+          return;
+        }
+        busy = true;
+        refresh();
+        note(errorEl, '');
+        setStored('code', code);
+        try {
+          await apiGet('/cards');
+          input.value = '';
+          showModes(true);
+        } catch (err) {
+          dropStored('code');
+          note(errorEl, err.status === 401 ? REJECTED : err.message, 'error');
+          input.select();
+        } finally {
+          busy = false;
+          refresh();
+        }
+      });
+
+      $('#change-code').addEventListener('click', function () {
+        dropStored('code');
+        showModes(false);
+        input.focus();
+      });
+
+      if (getStored('code_rejected')) {
+        dropStored('code_rejected');
+        note(errorEl, REJECTED, 'error');
+      }
+      if (getStored('code')) showModes(true);
+
+      wakeServer(statusEl).then(async function (ok) {
+        ready = ok;
+        refresh();
+        if (!ok) {
+          note(errorEl, 'The server did not answer. Reload the page to try again.', 'error');
+          return;
+        }
+        if (!getStored('code')) return;
+        /* a code is already stored from earlier in this tab: make sure it still works */
+        try {
+          await apiGet('/cards');
+        } catch (err) {
+          if (err.status === 401) {
+            dropStored('code');
+            showModes(false);
+            note(errorEl, REJECTED, 'error');
+          }
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

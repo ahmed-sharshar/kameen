@@ -12,7 +12,13 @@ UNIT = r"(?:\d|" + "|".join(sorted(WORD_DIGITS, key=len, reverse=True)) + ")"
 RUN = re.compile(rf"(?<!\w){UNIT}(?:[\s,.-]*{UNIT})*(?!\w)", re.I)
 ONE_UNIT = re.compile(UNIT, re.I)
 
-SAFE_WORD = re.compile(r"\bstop\b|is this real|are you (a |an )?(bot|robot|ai)\b|وقف|خلاص", re.I)
+# "stop" and its Arabic equivalents count only when they are the whole message or aimed at the caller:
+# "what do I do to stop it?" and "خلاص، بعطيك الرمز" are not requests to end the drill.
+SAFE_WORD = re.compile(
+    r"^\W*(please\s+)?stop(\s+(it|this|now|please|the (call|drill|test)))?\W*$"
+    r"|\bstop (calling|messaging|texting|contacting) me\b"
+    r"|is this real|are you (a |an )?(bot|robot|ai)\b"
+    r"|^\W*(وقف|خلاص|خلاص وقف|وقف خلاص)\W*$", re.I)
 REFUSAL = re.compile(r"\bscam\b|\bfraud\b|i will not|i won'?t|not giving|call the bank myself"
                      r"|report (you|this)|احتيال|نصب", re.I)
 DISTRESS = re.compile(r"i'?m scared|i am scared|please don'?t|i'?m confused|i am confused|خايف", re.I)

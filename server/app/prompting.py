@@ -79,5 +79,5 @@ def turn_note(conv):
     if conv.channel == "voice":
         lines.append("This is a phone call: one or two short spoken sentences, numbers as words, no symbols.")
     else:
-        lines.append("This is a text chat: reply as one short message, the way this person would type it.")
+        lines.append("This is a text chat, not a call: reply as one short message of one or two sentences.")
     return "\n".join(lines)

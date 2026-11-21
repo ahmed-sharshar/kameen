@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Test yourself - Kameen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300..700&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script>requireCode();</script>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="index.html">
+        <span class="brand-latin">Kameen</span>
+        <span class="brand-arabic" lang="ar" dir="rtl">كمين</span>
+      </a>
+      <nav class="topnav" aria-label="Sections">
+        <a href="decoy.html">Play the scammer</a>
+        <a href="drill.html">Test yourself</a>
+        <a href="dashboard.html">Dashboard</a>
+      </nav>
+      <span class="status-pill" id="status" role="status" data-state="waking">Waking up Kameen...</span>
+    </header>
+
+    <main>
+      <!-- Step 1: consent -->
+      <section id="consent" class="stack-l" aria-labelledby="consent-title" hidden>
+        <div class="drill-intro stack">
+          <h1 id="consent-title">Test yourself</h1>
+          <p class="lede">
+            Kameen will play a scammer and try to trick you. It stops before you share anything real,
+            then shows you what to watch for.
+          </p>
+        </div>
+
+        <form id="enrol-form" class="drill-form stack" novalidate>
+          <label class="field">
+            <span class="field-label">Nickname</span>
+            <input type="text" id="nickname" maxlength="60" autocomplete="off" required>
+          </label>
+          <label class="field">
+            <span class="field-label">Group or department</span>
+            <input type="text" id="group" maxlength="80" autocomplete="off" required>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="agree" required>
+            <span>I agree to take part in a simulated scam drill</span>
+          </label>
+          <p class="small">Use a nickname, not your full name. Anything that looks like a secret is masked before it is stored.</p>
+          <div class="actions">
+            <button type="submit" class="btn btn-primary" id="enrol-btn" disabled>Enrol and continue</button>
+          </div>
+          <p class="note" id="enrol-error" role="alert" hidden></p>
+        </form>
+      </section>
+
+      <!-- Step 2: scenario and channel -->
+      <section id="setup" class="stack-l" aria-labelledby="setup-title" hidden>
+        <div class="drill-intro stack">
+          <h1 id="setup-title">Pick a drill</h1>
+          <p class="lede" id="enrolled-line"></p>
+          <div class="actions">
+            <button type="button" class="btn btn-quiet btn-small" id="re-enrol">Enrol someone else</button>
+          </div>
+        </div>
+
+        <fieldset>
+          <legend class="group-label">Scenario</legend>
+          <div class="choices drill-choices" id="scenarios">
+            <p class="empty">Loading scenarios...</p>
+          </div>
+          <p class="small" id="pending-line" style="margin-top: 0.6rem;" hidden></p>
+        </fieldset>
+
+        <fieldset>
+          <legend class="group-label">How it reaches you</legend>
+          <div class="segmented">
+            <label><input type="radio" name="channel" value="web" checked><span>Text</span></label>
+            <label><input type="radio" name="channel" value="voice"><span>Call</span></label>
+          </div>
+        </fieldset>
+
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="start" disabled>Start drill</button>
+        </div>
+        <p class="note" id="setup-error" role="alert" hidden></p>
+        <div class="refusal" id="refusal" role="alert" hidden>
+          <p class="refusal-title">The server refused this drill</p>
+          <p class="refusal-text" id="refusal-text"></p>
+        </div>
+      </section>
+
+      <!-- Consent is enforced by the server: this block proves it -->
+      <section id="consent-check" class="consent-check stack" aria-labelledby="check-title" hidden>
+        <h2 id="check-title">Consent is checked by the server</h2>
+        <p class="small">A drill only starts for someone who enrolled. This button asks for a drill with no enrolment, so you can see the refusal.</p>
+        <div class="actions">
+          <button type="button" class="btn" id="demo-btn" disabled>Try to drill someone who is not enrolled</button>
+        </div>
+        <div class="refusal" id="demo-refusal" role="status" hidden>
+          <p class="refusal-title" id="demo-title">Refused by the server</p>
+          <p class="refusal-text" id="demo-text"></p>
+        </div>
+        <p class="note" id="demo-note" role="status" hidden></p>
+      </section>
+
+      <!-- Step 3: the drill, then the reveal -->
+      <section id="run" class="run is-live-only" aria-label="Drill" hidden>
+        <article class="reveal stack-l" id="reveal" tabindex="-1" aria-labelledby="reveal-title" hidden>
+          <div class="stack">
+            <h1 class="reveal-head" id="reveal-title">This was a Kameen safety drill</h1>
+            <p><span class="outcome" id="outcome" hidden></span></p>
+            <p class="reveal-text" id="reveal-text">Kameen played the scammer. Nothing in this conversation was real.</p>
+          </div>
+
+          <div class="lesson" id="lesson" hidden>
+            <h2 class="lesson-head" id="lesson-head"></h2>
+            <ul class="points" id="lesson-points"></ul>
+          </div>
+
+          <div class="lesson" id="flags-block" hidden>
+            <h2 class="section-title">Red flags in this conversation</h2>
+            <ul class="points flags" id="flags"></ul>
+          </div>
+
+          <div class="lesson" id="report-block" hidden>
+            <h2 class="section-title">How to report a real one</h2>
+            <p class="report" id="report-to"></p>
+          </div>
+
+          <div class="actions">
+            <button type="button" class="btn btn-primary" id="again">Try another scenario</button>
+            <a class="btn" href="index.html">Back to the start</a>
+          </div>
+        </article>
+
+        <div class="run-side stack">
+          <div class="phone skin-sms" id="phone">
+            <div class="phone-head">
+              <span class="phone-avatar" aria-hidden="true"></span>
+              <span class="phone-who">
+                <span class="phone-name" id="contact-name">Unknown sender</span>
+                <span class="phone-sub" id="contact-sub">Text message</span>
+              </span>
+            </div>
+            <div class="callbar" id="callbar" hidden>
+              <span class="callbar-text">
+                <strong>Call</strong>
+                <span class="callbar-time" id="call-time" role="timer"></span>
+              </span>
+              <button type="button" class="btn btn-small" id="hangup">Hang up</button>
+            </div>
+            <div class="transcript" id="transcript" role="log" aria-live="polite" aria-label="Messages" tabindex="0"></div>
+            <form class="composer" id="composer">
+              <label class="sr-only" for="msg">Your reply</label>
+              <textarea id="msg" rows="1" placeholder="Reply" autocomplete="off" disabled></textarea>
+              <button type="submit" class="send" id="send" disabled>Send</button>
+            </form>
+          </div>
+
+          <p class="note" id="stream-note" role="status" hidden></p>
+          <p class="note" id="chat-error" role="alert" hidden></p>
+          <div class="actions" id="live-actions">
+            <button type="button" class="btn btn-danger" id="stop" disabled>Stop the drill</button>
+            <span class="small">Reply as you normally would. You can stop at any time.</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="voice.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      if (!getStored('code')) return;
+      markNav();
+
+      var VOICE_LIMIT_SECONDS = 180;
+      var SKIN_LABELS = { sms: 'Text message', whatsapp: 'WhatsApp', email: 'Email' };
+      var OUTCOME_TEXT = {
+        resisted: 'You resisted',
+        hesitated: 'You hesitated',
+        would_comply: 'You were about to go along with it',
+        attempted_disclosure: 'You started to share a secret',
+        distress: 'We stopped the drill early'
+      };
+
+      var statusEl = $('#status');
+      var consentEl = $('#consent');
+      var setupEl = $('#setup');
+      var checkEl = $('#consent-check');
+      var runEl = $('#run');
+      var enrolForm = $('#enrol-form');
+      var enrolBtn = $('#enrol-btn');
+      var enrolError = $('#enrol-error');
+      var enrolledLine = $('#enrolled-line');
+      var scenariosEl = $('#scenarios');
+      var pendingLine = $('#pending-line');
+      var startBtn = $('#start');
+      var setupError = $('#setup-error');
+      var refusal = $('#refusal');
+      var refusalText = $('#refusal-text');
+      var demoBtn = $('#demo-btn');
+      var demoRefusal = $('#demo-refusal');
+      var demoTitle = $('#demo-title');
+      var demoText = $('#demo-text');
+      var demoNote = $('#demo-note');
+      var revealEl = $('#reveal');
+      var outcomeEl = $('#outcome');
+      var revealText = $('#reveal-text');
+      var phone = $('#phone');
+      var transcript = $('#transcript');
+      var composer = $('#composer');
+      var msg = $('#msg');
+      var sendBtn = $('#send');
+      var streamNote = $('#stream-note');
+      var chatError = $('#chat-error');
+      var stopBtn = $('#stop');
+      var liveActions = $('#live-actions');
+
+      var DEFAULT_REVEAL_TEXT = revealText.textContent;
+
+      var ready = false;
+      var enrolling = false;
+      var starting = false;
+      var stopping = false;
+      var demoBusy = false;
+      var scenarios = [];
+      var activeScenario = null;
+      var revealed = false;
+      var outcomeKnown = false;
+      var fallbackTimer = null;
+
+      var chat = createChat({
+        listEl: transcript,
+        lingerMs: 20000,
+        names: function () {
+          return { agent: 'From ' + senderName(activeScenario), counterpart: 'From you' };
+        },
+        onStart: function () {
+          note(chatError, '');
+          note(streamNote, '');
+        },
+        onEvent: function (ev) {
+          if (ev.type === 'drill_outcome') {
+            reveal(ev);
+            if (chat.live) chat.end('');
+          }
+        },
+        onEnded: onEnded,
+        onStream: function (state) {
+          note(streamNote, state === 'lost' ? 'Live connection lost. Reconnecting...' : '');
+        }
+      });
+
+      var callbar = createCallBar({
+        barEl: $('#callbar'),
+        timeEl: $('#call-time'),
+        maxSeconds: VOICE_LIMIT_SECONDS,
+        onChange: function () { refresh(); showContact(); }
+      });
+
+      /* ---------- enrolment kept for this tab ---------- */
+
+      function enrolmentId() {
+        var raw = getStored('enrolment_id');
+        if (raw == null || raw === '') return null;
+        return getStored('enrolment_id_kind') === 'number' ? Number(raw) : raw;
+      }
+
+      function forgetEnrolment() {
+        dropStored('enrolment_id');
+        dropStored('enrolment_id_kind');
+        dropStored('enrolment_label');
+      }
+
+      /* ---------- steps ---------- */
+
+      function show(step) {
+        consentEl.hidden = step !== 'consent';
+        setupEl.hidden = step !== 'setup';
+        runEl.hidden = step !== 'run';
+        checkEl.hidden = step === 'run';
+        if (step === 'setup') {
+          var label = getStored('enrolment_label');
+          setText(enrolledLine, label ? 'Enrolled as ' + label + '. Pick a scenario and how it reaches you.' : 'You are enrolled. Pick a scenario and how it reaches you.');
+        }
+      }
+
+      function refresh() {
+        enrolBtn.disabled = !ready || enrolling;
+        startBtn.disabled = !ready || starting || chat.live || scenarios.length === 0;
+        demoBtn.disabled = !ready || demoBusy;
+        var canType = chat.live && !starting && callbar.state === 'idle';
+        msg.disabled = !canType;
+        sendBtn.disabled = !canType || chat.sending;
+        stopBtn.disabled = !chat.live || stopping;
+      }
+
+      /* ---------- scenarios ---------- */
+
+      function senderName(scenario) {
+        if (!scenario) return 'Unknown sender';
+        return String(scenario.impersonates || scenario.title || 'Unknown sender');
+      }
+
+      function skinFor(scenario) {
+        var list = ((scenario && scenario.channels) || []).map(function (c) { return String(c).toLowerCase(); });
+        if (list.indexOf('whatsapp') !== -1) return 'whatsapp';
+        if (list.indexOf('email') !== -1) return 'email';
+        return 'sms';
+      }
+
+      function selectedScenario() {
+        var picked = $('input[name="scenario"]:checked', scenariosEl);
+        if (!picked) return null;
+        for (var i = 0; i < scenarios.length; i++) {
+          if (String(scenarios[i].id) === picked.value) return scenarios[i];
+        }
+        return null;
+      }
+
+      function showContact() {
+        var scenario = activeScenario || selectedScenario();
+        var skin = skinFor(scenario);
+        phone.className = 'phone skin-' + skin;
+        setText($('#contact-name'), senderName(scenario));
+        $('#contact-sub').textContent = callbar.state !== 'idle' ? 'Call' : SKIN_LABELS[skin];
+      }
+
+      function renderScenarios(pendingCount) {
+        clearNode(scenariosEl);
+        if (!scenarios.length) {
+          scenariosEl.appendChild(h('p', { class: 'empty', text: 'No approved scenarios yet. A scenario must be approved before it can be used in a drill.' }));
+        }
+        scenarios.forEach(function (scenario, index) {
+          var sub = [];
+          if (scenario.difficulty != null && scenario.difficulty !== '') sub.push('Difficulty: ' + humanize(scenario.difficulty));
+          if (scenario.language) sub.push(Array.isArray(scenario.language) ? scenario.language.join(', ') : String(scenario.language));
+          var body = h('span', { class: 'choice-body' }, [
+            setText(h('span', { class: 'choice-title' }), scenario.title || String(scenario.id)),
+            scenario.impersonates ? setText(h('span', { class: 'choice-text' }), 'Pretends to be ' + scenario.impersonates) : null,
+            sub.length ? setText(h('span', { class: 'choice-sub' }), sub.join(', ')) : null
+          ]);
+          var radio = h('input', { type: 'radio', name: 'scenario', value: String(scenario.id) });
+          if (index === 0) radio.checked = true;
+          scenariosEl.appendChild(h('label', { class: 'choice' }, [radio, body]));
+        });
+        if (pendingCount > 0) {
+          note(pendingLine, pendingCount === 1 ? '1 more scenario is waiting for approval and cannot be used yet.' : pendingCount + ' more scenarios are waiting for approval and cannot be used yet.');
+        } else {
+          note(pendingLine, '');
+        }
+      }
+
+      async function loadScenarios() {
+        try {
+          var data = await apiGet('/cards');
+          var all = (data && data.scenarios) || [];
+          scenarios = all.filter(function (s) { return s && s.approved === true; });
+          renderScenarios(all.length - scenarios.length);
+        } catch (err) {
+          if (authFailed(err)) return;
+          clearNode(scenariosEl);
+          scenariosEl.appendChild(h('p', { class: 'note', 'data-kind': 'error', text: 'Could not load scenarios: ' + err.message }));
+        }
+        refresh();
+      }
+
+      /* ---------- step 1: consent ---------- */
+
+      enrolForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        if (!ready || enrolling) return;
+        var nickname = $('#nickname').value.trim();
+        var group = $('#group').value.trim();
+        if (!nickname) { note(enrolError, 'Enter a nickname.', 'error'); $('#nickname').focus(); return; }
+        if (!group) { note(enrolError, 'Enter your group or department.', 'error'); $('#group').focus(); return; }
+        if (!$('#agree').checked) { note(enrolError, 'Tick the box to agree before you continue.', 'error'); $('#agree').focus(); return; }
+        enrolling = true;
+        refresh();
+        note(enrolError, '');
+        try {
+          var res = await api('/enrolments', { person: nickname, group_name: group });
+          if (!res || res.enrolment_id == null) throw new Error('The server did not return an enrolment.');
+          setStored('enrolment_id', String(res.enrolment_id));
+          setStored('enrolment_id_kind', typeof res.enrolment_id);
+          setStored('enrolment_label', nickname + ', ' + group);
+          enrolForm.reset();
+          refusal.hidden = true;
+          show('setup');
+          $('#setup-title').scrollIntoView({ block: 'start' });
+        } catch (err) {
+          if (authFailed(err)) return;
+          note(enrolError, 'Could not enrol: ' + err.message, 'error');
+        } finally {
+          enrolling = false;
+          refresh();
+        }
+      });
+
+      $('#re-enrol').addEventListener('click', function () {
+        forgetEnrolment();
+        refusal.hidden = true;
+        note(setupError, '');
+        show('consent');
+        $('#nickname').focus();
+      });
+
+      /* ---------- step 2: start ---------- */
+
+      startBtn.addEventListener('click', async function () {
+        if (!ready || starting || chat.live) return;
+        var scenario = selectedScenario();
+        if (!scenario) { note(setupError, 'Pick a scenario first.', 'error'); return; }
+        var enrolment = enrolmentId();
+        if (enrolment == null) { show('consent'); return; }
+        var voice = ($('input[name="channel"]:checked') || {}).value === 'voice';
+
+        starting = true;
+        refresh();
+        note(setupError, '');
+        refusal.hidden = true;
+        resetReveal();
+        try {
+          activeScenario = scenario;
+          await chat.start({
+            mode: 'drill',
+            scenario_id: scenario.id,
+            enrolment_id: enrolment,
+            channel: voice ? 'voice' : 'web'
+          }, true);
+        } catch (err) {
+          activeScenario = null;
+          starting = false;
+          refresh();
+          if (authFailed(err)) return;
+          if (err.status === 403) {
+            setText(refusalText, err.message);
+            refusal.hidden = false;
+          } else {
+            note(setupError, 'Could not start the drill: ' + err.message, 'error');
+          }
+          return;
+        }
+
+        var id = chat.id;
+        show('run');
+        showContact();
+        liveActions.hidden = false;
+        if (voice) {
+          if (!transcript.firstChild) setHint(transcript, 'Connecting the call. Answer as you normally would.');
+          try {
+            await callbar.start(id);
+            if (!chat.live || chat.id !== id) await callbar.stop();
+          } catch (err) {
+            note(chatError, 'Call could not start: ' + voiceErrorText(err) + ' You can carry on by text.', 'error');
+          }
+        } else if (!transcript.firstChild) {
+          setHint(transcript, 'Waiting for the first message.');
+        }
+        starting = false;
+        refresh();
+        showContact();
+        if (!msg.disabled) msg.focus();
+      });
+
+      /* ---------- step 3: talking ---------- */
+
+      function fitComposer() {
+        msg.style.height = 'auto';
+        msg.style.height = Math.min(msg.scrollHeight + 2, 120) + 'px';
+      }
+
+      composer.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        var text = msg.value.trim();
+        if (!text || !chat.live || chat.sending || msg.disabled) return;
+        note(chatError, '');
+        msg.value = '';
+        fitComposer();
+        var pending = chat.send(text);
+        refresh();
+        try {
+          await pending;
+        } catch (err) {
+          if (authFailed(err)) return;
+          if (!msg.value) msg.value = text;
+          fitComposer();
+          note(chatError, 'Message not sent: ' + err.message, 'error');
+        } finally {
+          refresh();
+          if (!msg.disabled) msg.focus();
+        }
+      });
+
+      msg.addEventListener('input', fitComposer);
+      msg.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+          event.preventDefault();
+          if (composer.requestSubmit) composer.requestSubmit();
+          else sendBtn.click();
+        }
+      });
+
+      $('#hangup').addEventListener('click', function () {
+        callbar.stop().then(function () {
+          if (chat.live) note(chatError, 'Call ended. The drill is still open: reply by text, or stop it.', 'info');
+        });
+      });
+
+      window.addEventListener('kameen:call-error', function (event) {
+        if (chat.live) note(chatError, 'Voice problem: ' + voiceErrorText({ message: event.detail && event.detail.message }), 'error');
+      });
+
+      stopBtn.addEventListener('click', async function () {
+        if (!chat.live || stopping) return;
+        stopping = true;
+        refresh();
+        try {
+          await chat.kill();
+        } catch (err) {
+          if (authFailed(err)) return;
+          note(chatError, 'Could not stop the drill: ' + err.message, 'error');
+        } finally {
+          stopping = false;
+          refresh();
+        }
+      });
+
+      /* ---------- the reveal ---------- */
+
+      function fillList(listEl, items) {
+        clearNode(listEl);
+        (items || []).forEach(function (item) {
+          if (item == null || item === '') return;
+          listEl.appendChild(setText(h('li'), typeof item === 'string' ? item : (item.text || item.title || JSON.stringify(item))));
+        });
+        return listEl.children.length;
+      }
+
+      function showOutcome(code, text) {
+        setText(outcomeEl, text);
+        outcomeEl.dataset.outcome = code;
+        outcomeEl.hidden = false;
+      }
+
+      function resetReveal() {
+        clearTimeout(fallbackTimer);
+        revealed = false;
+        outcomeKnown = false;
+        document.body.classList.remove('is-revealed');
+        runEl.classList.add('is-live-only');
+        revealEl.hidden = true;
+        outcomeEl.hidden = true;
+        setText(revealText, DEFAULT_REVEAL_TEXT);
+        $('#lesson').hidden = true;
+        $('#flags-block').hidden = true;
+        $('#report-block').hidden = true;
+      }
+
+      /* Safe to call more than once: the first call switches the page, later calls fill in detail. */
+      function reveal(data) {
+        data = data || {};
+        if (!revealed) {
+          revealed = true;
+          document.body.classList.add('is-revealed');
+          runEl.classList.remove('is-live-only');
+          revealEl.hidden = false;
+          liveActions.hidden = true;
+          callbar.stop();
+          requestAnimationFrame(function () {
+            revealEl.focus({ preventScroll: true });
+            revealEl.scrollIntoView({ block: 'start', behavior: 'smooth' });
+          });
+        }
+        if (data.outcome) {
+          outcomeKnown = true;
+          var code = String(data.outcome);
+          showOutcome(code, Object.prototype.hasOwnProperty.call(OUTCOME_TEXT, code) ? OUTCOME_TEXT[code] : humanize(code));
+        }
+        if (data.text) setText(revealText, data.text);
+        var lesson = data.lesson;
+        if (lesson && typeof lesson === 'object') {
+          setText($('#lesson-head'), lesson.headline || '');
+          $('#lesson-head').hidden = !lesson.headline;
+          var points = fillList($('#lesson-points'), lesson.three_points);
+          $('#lesson').hidden = !lesson.headline && !points;
+          if (lesson.report_to) {
+            setText($('#report-to'), lesson.report_to);
+            $('#report-block').hidden = false;
+          }
+        }
+        if (Array.isArray(data.red_flags)) {
+          $('#flags-block').hidden = fillList($('#flags'), data.red_flags) === 0;
+        }
+      }
+
+      function onEnded(reason) {
+        var byUser = reason === 'Ended by you';
+        addBubble(transcript, 'marker', 'Drill ended', { stick: true });
+        refresh();
+        reveal({});
+        if (byUser && !outcomeKnown) showOutcome('stopped', 'You stopped the drill');
+        /* the outcome normally arrives as a live event; if it does not, ask the server once */
+        var id = chat.id;
+        clearTimeout(fallbackTimer);
+        fallbackTimer = setTimeout(function () {
+          if (outcomeKnown || chat.id !== id) return;
+          apiGet(sessionPath(id)).then(function (data) {
+            if (outcomeKnown || chat.id !== id || !data || !data.drill_result) return;
+            reveal({ outcome: data.drill_result.outcome });
+          }).catch(function () { /* the reveal stays as it is */ });
+        }, 3500);
+      }
+
+      $('#again').addEventListener('click', function () {
+        resetReveal();
+        chat.reset();
+        activeScenario = null;
+        refusal.hidden = true;
+        note(setupError, '');
+        show(enrolmentId() == null ? 'consent' : 'setup');
+        refresh();
+        window.scrollTo(0, 0);
+      });
+
+      /* ---------- consent check demo ---------- */
+
+      demoBtn.addEventListener('click', async function () {
+        if (!ready || demoBusy) return;
+        demoBusy = true;
+        refresh();
+        demoRefusal.hidden = true;
+        note(demoNote, '');
+        var scenario = selectedScenario() || scenarios[0];
+        var body = { mode: 'drill', channel: 'web' };
+        if (scenario) body.scenario_id = scenario.id;
+        try {
+          var res = await api('/sessions', body);
+          /* this should never succeed: close whatever was opened and say so */
+          if (res && res.conversation_id != null) {
+            api(sessionPath(res.conversation_id, '/kill'), {}).catch(function () {});
+          }
+          note(demoNote, 'The server started a drill without an enrolment. That should not happen: the session was ended.', 'error');
+        } catch (err) {
+          if (authFailed(err)) return;
+          if (err.status === 403) {
+            demoTitle.textContent = 'Refused by the server';
+            setText(demoText, err.message);
+            demoRefusal.hidden = false;
+          } else {
+            note(demoNote, 'The request failed before the consent check (' + (err.status || 'no response') + '): ' + err.message, 'error');
+          }
+        } finally {
+          demoBusy = false;
+          refresh();
+        }
+      });
+
+      /* ---------- boot ---------- */
+
+      show(enrolmentId() == null ? 'consent' : 'setup');
+      refresh();
+      wakeServer(statusEl).then(function (ok) {
+        ready = ok;
+        refresh();
+        if (ok) loadScenarios();
+        else {
+          clearNode(scenariosEl);
+          scenariosEl.appendChild(h('p', { class: 'note', 'data-kind': 'error', text: 'The server did not answer. Reload the page to try again.' }));
+          note(enrolError, 'The server did not answer. Reload the page to try again.', 'error');
+        }
+      });
+
+      window.addEventListener('pagehide', function () {
+        chat.closeStream();
+        if (window.kameenVoice) window.kameenVoice.endCall();
+      });
+    })();
+  </script>
+</body>
+</html>
