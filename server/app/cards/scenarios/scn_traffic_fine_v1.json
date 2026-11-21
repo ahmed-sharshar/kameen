@@ -32,5 +32,5 @@
   },
   "decoy_targets": ["payment_link", "iban", "callback_number"],
   "source_ref": null,
-  "approved_by": null
+  "approved_by": "Ahmed Sharshar, 2026-11-21"
 }
