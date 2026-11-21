@@ -1,0 +1,36 @@
+{
+  "id": "scn_courier_parcel_v1",
+  "title": "Courier holding a parcel for a small fee",
+  "scam_type": "delivery_impersonation",
+  "impersonates": "courier company",
+  "channels": ["sms", "whatsapp"],
+  "language": "en",
+  "difficulty": 1,
+  "hook": "Your parcel is on hold until a small customs fee is paid",
+  "opening_line": {
+    "sms": "Courier notice: your parcel is on hold. A small customs fee is due before delivery. Reply to this message to arrange payment.",
+    "whatsapp": "Hello, this is the courier service. Your parcel is on hold at our depot for a small customs fee. Can I help you clear it now?"
+  },
+  "pressure_tactics": ["small_amount", "urgency", "helpfulness"],
+  "stage_goals": {
+    "PRETEXT": "Establish that a parcel is waiting and a small fee is due",
+    "PRESSURE": "Say the parcel is returned to the sender tonight unless the fee is paid now, and that it only takes a minute",
+    "ASK": "Say the fee is paid by card, then ask the commit question"
+  },
+  "ask": "card details",
+  "commit_question": "Do you have your bank card in front of you so we can clear the fee?",
+  "commit_signals": ["let me get my card", "i have my card", "ok i will pay", "where do i enter my card"],
+  "red_flags": ["You were not expecting a parcel", "A tiny fee used to collect full card details", "A return-to-sender deadline tonight"],
+  "lesson": {
+    "headline": "A small fee is the bait; your card details are the prize",
+    "three_points": [
+      "Couriers do not collect customs fees by message. Track the parcel yourself on the courier's official site.",
+      "Scammers ask for a tiny amount so that giving your card feels harmless.",
+      "If you were not expecting a parcel, there is no parcel."
+    ],
+    "report_to": "contact the Aman service of Abu Dhabi Police"
+  },
+  "decoy_targets": ["payment_link", "callback_number"],
+  "source_ref": null,
+  "approved_by": null
+}

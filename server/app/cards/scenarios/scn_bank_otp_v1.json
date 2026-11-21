@@ -1,0 +1,36 @@
+{
+  "id": "scn_bank_otp_v1",
+  "title": "Bank security team: suspicious transaction",
+  "scam_type": "bank_impersonation",
+  "impersonates": "bank security team",
+  "channels": ["voice", "sms"],
+  "language": "en",
+  "difficulty": 2,
+  "hook": "A suspicious payment was blocked on your card and must be verified now",
+  "opening_line": {
+    "voice": "Good afternoon, this is the security team at your bank. We have blocked a suspicious payment on your card and I need to verify it with you.",
+    "sms": "Bank Security: a suspicious payment was attempted on your card. If this was not you, reply to this message now so we can block it."
+  },
+  "pressure_tactics": ["urgency", "authority", "fear_of_loss"],
+  "stage_goals": {
+    "PRETEXT": "Establish that a suspicious payment was attempted and that you are from the bank's security team",
+    "PRESSURE": "Say the payment will go through within minutes unless the card is verified on this call",
+    "ASK": "Say a verification code has been sent to their phone, then ask the commit question"
+  },
+  "ask": "one-time password",
+  "commit_question": "Do you have the six-digit code we just sent to your phone in front of you?",
+  "commit_signals": ["i will read the code", "let me check my messages", "one second i have it", "i got the code"],
+  "red_flags": ["The bank called you, you did not call the bank", "Pressure to act within minutes", "A request for a one-time code"],
+  "lesson": {
+    "headline": "Your bank will never ask for a one-time code",
+    "three_points": [
+      "A one-time code approves a payment. Anyone who asks for it is trying to take money, not protect it.",
+      "Real bank staff never rush you. Hang up and call the number printed on your card.",
+      "A caller knowing your name or part of your card number proves nothing."
+    ],
+    "report_to": "contact the Aman service of Abu Dhabi Police"
+  },
+  "decoy_targets": ["callback_number", "iban", "name"],
+  "source_ref": null,
+  "approved_by": null
+}

@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+anthropic
+sqlalchemy[asyncio]
+psycopg[binary]
+aiosqlite
+httpx
+python-dotenv
+pytest

@@ -1,0 +1,36 @@
+{
+  "id": "scn_traffic_fine_v1",
+  "title": "Unpaid traffic fine",
+  "scam_type": "government_impersonation",
+  "impersonates": "traffic authority",
+  "channels": ["sms", "whatsapp", "voice"],
+  "language": "en",
+  "difficulty": 2,
+  "hook": "You have an unpaid fine and your licence will be suspended today",
+  "opening_line": {
+    "sms": "Traffic Dept: you have an unpaid traffic fine. Pay today to avoid suspension of your licence. Reply to this message for payment options.",
+    "voice": "Hello, this is the traffic department calling about an unpaid fine on your file."
+  },
+  "pressure_tactics": ["urgency", "authority", "fear_of_penalty"],
+  "stage_goals": {
+    "PRETEXT": "Establish the fine and that it is overdue",
+    "PRESSURE": "Warn that the licence is suspended today unless the fine is paid now, and offer to settle it immediately",
+    "ASK": "Say payment needs card verification, then ask the commit question"
+  },
+  "ask": "card number and one-time password",
+  "commit_question": "Do you have your card and the code in front of you?",
+  "commit_signals": ["i will read the code", "let me get my card", "one second i have it"],
+  "red_flags": ["The message did not come from an official channel", "A threat with a same-day deadline", "A request for card details and a one-time code"],
+  "lesson": {
+    "headline": "The police never ask for your card details or a one-time code",
+    "three_points": [
+      "Fines are paid only through official apps and websites, never by reading a card to a caller.",
+      "A deadline of today is a pressure tactic. Real fines do not disappear if you take an hour to check.",
+      "Check any fine yourself in the official app before you reply to a message about it."
+    ],
+    "report_to": "contact the Aman service of Abu Dhabi Police"
+  },
+  "decoy_targets": ["payment_link", "iban", "callback_number"],
+  "source_ref": null,
+  "approved_by": null
+}
