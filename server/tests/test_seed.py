@@ -1,5 +1,5 @@
 """The synthetic demo history: loads once, links into campaigns, and can be removed cleanly."""
-from app import canaries, seed
+from app import canaries, db, seed
 
 
 def test_seed_values_are_synthetic():
@@ -7,7 +7,7 @@ def test_seed_values_are_synthetic():
         for key in ("iban", "iban2"):
             if key in campaign:
                 assert canaries.iban_ok(campaign[key]) and campaign[key][4:7] == "999"   # the synthetic bank code
-        assert campaign["phone"].startswith("059")                                       # a prefix believed unassigned
+        assert campaign["phone"].startswith("050") and len(campaign["phone"]) == 10      # made-up digits after 050
         assert ".example." in campaign["url"]                                            # a reserved domain
     assert sum(c["count"] for c in seed.CAMPAIGNS.values()) + len(seed.SINGLES) == 25
 
@@ -18,6 +18,8 @@ def test_seed_loads_linked_campaigns_once_and_clears(client, code):
 
     assert client.portal.call(seed.run) == 25
     assert client.portal.call(seed.run) == 0                     # already loaded: nothing is added twice
+    client.portal.call(db.put_value, "seed", {"version": seed.VERSION - 1})
+    assert client.portal.call(seed.run) == 25                    # an older set is replaced, not added to
 
     sessions = client.get("/sessions", headers=code).json()["sessions"]
     assert len(sessions) == before + 25

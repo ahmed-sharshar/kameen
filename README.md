@@ -46,6 +46,15 @@ cd server
 
 The tests run the real routes against a throwaway SQLite file and the scripted model.
 
+Two more scripts call the real models and cost money, so they are run by hand:
+
+- `tests/selfplay.py` plays simulated scammers against the decoy and simulated trainees against the drill agent (about $6 for the full run). `--rescore` scores a finished run again for free.
+- `tests/redteam.py` sends 28 hostile messages (prompt injection, "are you a bot", abuse, codes given in words or Arabic digits) and checks each reply by rule (under $0.10). `--dry` checks the script itself for free.
+
+Both write the numbers shown on the dashboard's Evidence tab.
+
+`scripts/arabic_review.py` writes every Arabic line Kameen uses into one page for a native reviewer.
+
 ## Safety rules that live in code
 
 - A drill starts only for a person with a consent record. There is no override.
@@ -56,7 +65,7 @@ The tests run the real routes against a throwaway SQLite file and the scripted m
 
 ## Demo history
 
-`server/scripts/seed.py` loads 25 synthetic past conversations in three linked campaigns, plus 43 drill results, so the dashboard has something to show. Everything in it is invented: IBANs use the synthetic bank code, phone numbers use the 059 prefix, and links sit under the reserved example domains. Run it with `--clear` to remove it, or `--cue` to print the IBAN and phone for the demo cue card. On the server, `SEED_DEMO=1` loads it once at start-up.
+`server/scripts/seed.py` loads 25 synthetic past conversations in three linked campaigns, plus 43 drill results, so the dashboard has something to show. Everything in it is invented: IBANs use the synthetic bank code, phone numbers are made-up digits after the 050 prefix, and links sit under the reserved example domains. Run it with `--clear` to remove it, or `--cue` to print the IBAN and phone for the demo cue card. On the server, `SEED_DEMO=1` loads it once at start-up.
 
 ## Approving a scenario card
 

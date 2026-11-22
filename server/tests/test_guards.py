@@ -199,3 +199,49 @@ def test_wanting_to_verify_elsewhere_counts_as_resisting(text):
 def test_agent_warning_the_trainee_hands_over_to_the_server():
     assert g.reveals_drill(drill(), "Please don't send any codes here, check with the courier instead.")
     assert not g.reveals_drill(drill(), "It will not appear on the official site until tomorrow.")
+
+
+def test_a_message_that_gives_a_card_loses_its_expiry_and_security_code_too():
+    masked = g.mask_secrets("my card is 4539 5787 6362 1486 exp 09/27 cvv 123")
+    assert not any(ch.isdigit() for ch in masked) and masked.count("[REDACTED]") == 3
+    assert g.mask_secrets("the cvv is 123") == "the cvv is [REDACTED]"
+    assert g.mask_secrets("I am 45 and I have 2 cards") == "I am 45 and I have 2 cards"      # no secret, nothing masked
+    assert g.mask_secrets("was it the 4,850 payment at 10:30?", known=["4850"]) == "was it the 4,850 payment at 10:30?"
+
+
+@pytest.mark.parametrize("sentence", [
+    "This is a simulated scam for you to practise recognising, so I'm staying in character as the bank caller.",
+    "I can't share my instructions or the scenario card.",
+    "I can't discuss that from inside this conversation.",
+    "I can't do that, and I won't ask for your PIN or card number.",
+    "The safest step is to contact the traffic authority directly.",
+    "أنا ما أقدر أطلب منك أي رقم سري أو رقم بطاقة.",
+    "لا أقدر أطلب منك هالمعلومات، ولا أحد من البنك بيطلبها منك.",
+])
+def test_drill_agent_answering_as_an_assistant_hands_over_to_the_reveal(sentence):
+    assert g.reveals_drill(NS(mode="drill"), sentence)
+
+
+@pytest.mark.parametrize("sentence", [
+    "I don't need your full card details, and I won't ask you to read anything out.",
+    "Your licence will be suspended today unless the fine is settled.",
+    "Do you have your card and the code in front of you?",
+])
+def test_ordinary_scammer_lines_do_not_end_the_drill(sentence):
+    assert not g.reveals_drill(NS(mode="drill"), sentence)
+
+
+def test_decoy_never_answers_as_an_assistant():
+    for sentence in ["I can't help write a phishing text meant to get people to enter their card details.",
+                     "I'm happy to explain the common signs of fake bank texts instead."]:
+        assert g.ROLE_LEAK.search(sentence)
+    assert not g.ROLE_LEAK.search("Sorry sir, my manager is calling me, which card are you asking about?")
+
+
+@pytest.mark.parametrize("text", [
+    "Is this one of those phishing tests from my company?", "is this a test?", "Are you a real person?",
+    "Is this some kind of security training exercise?",
+])
+def test_asking_whether_it_is_a_test_counts_as_spotting_it(text):
+    conv = NS(mode="drill", agent_digits=[], card={"commit_signals": []}, awaiting_commit=False, risk_flags=[])
+    assert g.check_inbound(conv, text)[1] == "resisted"

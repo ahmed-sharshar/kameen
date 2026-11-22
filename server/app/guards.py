@@ -17,9 +17,10 @@ ONE_UNIT = re.compile(UNIT, re.I)
 SAFE_WORD = re.compile(
     r"^\W*(please\s+)?stop(\s+(it|this|now|please|the (call|drill|test)))?\W*$"
     r"|\bstop (calling|messaging|texting|contacting) me\b"
-    r"|is this real|are you (a |an )?(bot|robot|ai)\b"
+    r"|is this real|are you (a |an )?(bot|robot|ai)\b|are you (a |an )?real (person|human)"
+    r"|is this (a|an|one of those|some (kind|sort) of) [^.?!]{0,30}(test|drill|simulation|exercise|training)"
     r"|^\W*(وقف|خلاص|خلاص وقف|وقف خلاص)\W*$", re.I)
-REFUSAL = re.compile(r"\bscam\b|\bfraud\b|i will not|i won'?t|not giving|call the bank myself"
+REFUSAL = re.compile(r"\bscam\b|\bfraud\b|\bphishing\b|i will not|i won'?t|not giving|call the bank myself"
                      r"|report (you|this)|check (it|this|that) (myself|directly)|i'?d rather (check|call|verify)"
                      r"|i('ll| will) (call|contact|check with) (the|my) (bank|courier|police)"
                      r"|(look( (it|this))? up|check|verify)[^.?!]{0,30}official (site|website|app)|not comfortable"
@@ -42,6 +43,8 @@ ASKS_FOR_SECRET = re.compile(
 ROLE_LEAK = re.compile(r"as an ai|language model|system prompt|playbook|\bclaude\b|anthropic|\bkameen\b"
                        r"|role-?play|\bpersona\b|\bdecoy\b|i was playing|(playing|play) (a|the|this|that) (role|part|victim)"
                        r"|i('m| am) (going to stop|not going to continue)|i (won't|will not|can't|cannot) continue"
+                       r"|my instructions|scenario card|\bphishing\b|i can'?t help (you )?(with|write|create)"
+                       r"|i('m| am) happy to (explain|help)|i('m| am) (not able|unable) to help"
                        r"|ذكاء اصطناعي|نموذج لغوي", re.I)
 # The drill agent must never announce the drill: the server does that, with the lesson attached.
 SELF_REVEAL = re.compile(
@@ -51,7 +54,13 @@ SELF_REVEAL = re.compile(
     r"|i('m| am) (not able|unable) to continue|i (can't|cannot|won't|will not|shouldn't) (continue|keep)"
     r"|i('m| am) not going to (continue|keep|push|press)|^\W*one moment,? please\W*$"
     r"|(do not|don'?t|never) (send|share|give|enter|read)[^.?!]{0,30}(code|card|pin|password|details)"
-    r"|كمين|تمرين|تدريب|محاكاة|مب حقيقي|مش حقيقي|غير حقيقي", re.I)
+    r"|simulat\w*|in character|my instructions|scenario card|\bphishing\b"
+    r"|i can'?t (do that|discuss|share|help)|(won'?t|can'?t|cannot|will not|never) ask (you )?for"
+    r"|safest (step|thing|option)"
+    r"|كمين|تمرين|تدريب|محاكاة|مب حقيقي|مش حقيقي|غير حقيقي|(ما|لا|مب) ?[أا]قدر [أا]طلب|ما راح [أا]طلب", re.I)
+
+SECURITY_CODE = re.compile(r"\b((?:cvv2?|cvc2?|security (?:code|number))\D{0,12})\d{3}\b", re.I)
+LEFTOVER_DIGITS = re.compile(r"\d+(?:\s*[/.-]\s*\d+)*")
 
 REVEAL_VERDICTS = {"resisted", "attempted_disclosure", "would_comply", "distress"}
 
@@ -73,11 +82,17 @@ def digit_runs(text, minimum):
 
 
 def mask_secrets(text, known=()):
-    """Masks every run of 4 or more digits, except numbers the agent itself said first."""
+    """Masks every run of 4 or more digits, except numbers the agent itself said first, and a
+    three-digit card security code. A message that gives one secret often gives the rest
+    (an expiry date, a security code), so once anything is masked every other digit goes too."""
     text = text.translate(EASTERN)
+    found = False
     for digits, (start, end) in reversed(digit_runs(text, 4)):
         if not any(digits in value for value in known):
-            text = text[:start] + "[REDACTED]" + text[end:]
+            text, found = text[:start] + "[REDACTED]" + text[end:], True
+    text, security_codes = SECURITY_CODE.subn(lambda m: m.group(1) + "[REDACTED]", text)
+    if found or security_codes:
+        text = LEFTOVER_DIGITS.sub("[REDACTED]", text)
     return text
 
 

@@ -1,11 +1,11 @@
 """Synthetic history for the demo: past decoy conversations in linked campaigns, and drill results.
 
-Everything here is invented. IBANs use the synthetic bank code, phone numbers use a mobile
-prefix believed to be unassigned (059), and web addresses sit under the reserved example
+Everything here is invented. IBANs use the synthetic bank code, phone numbers are made-up digits
+after the 050 mobile prefix, and web addresses sit under the reserved example
 domains. Seeded conversations carry external_id "seed", so they can be told apart and removed.
 
 Seeding is idempotent: conversation IDs are derived from fixed names, and a marker in the
-key/value table records that the set is loaded.
+key/value table records which version of the set is loaded. A newer version replaces an older one.
 """
 import random
 import time
@@ -15,7 +15,7 @@ from sqlalchemy import delete, select
 
 from . import canaries, db, extract
 
-VERSION = 1
+VERSION = 2
 NAMESPACE = uuid.UUID("6b1f6a3e-5a0e-4a53-9d0f-4b2b6f6d5c11")
 
 
@@ -33,20 +33,20 @@ CAMPAIGNS = {
     "safe_account": {
         "scenario_id": "scn_bank_otp_v1", "count": 9,
         "iban": iban("4410002200330044"), "iban2": iban("4410002200339917"),
-        "phone": "0590001122", "url": "uae-bank-secure.example.com/verify",
+        "phone": "0500001122", "url": "uae-bank-secure.example.com/verify",
     },
     "traffic_fine": {
         "scenario_id": "scn_traffic_fine_v1", "count": 8,
-        "phone": "0590003344", "url": "fines-pay.example.net/settle",
+        "phone": "0500003344", "url": "fines-pay.example.net/settle",
         "iban": iban("7700115500660022"),
     },
     "parcel_fee": {
         "scenario_id": "scn_courier_parcel_v1", "count": 6,
-        "url": "parcel-release.example.org/fee", "phone": "0590005566",
+        "url": "parcel-release.example.org/fee", "phone": "0500005566",
         "wallet": "0x9f3a61c0d2b74e5a8c1f0b6d7e4a9c2b5d8f1e30",
     },
 }
-CUE_CARD = {"iban": spaced(CAMPAIGNS["safe_account"]["iban"]), "phone": "059 000 1122"}
+CUE_CARD = {"iban": spaced(CAMPAIGNS["safe_account"]["iban"]), "phone": "050 000 1122"}
 
 # (speaker, text). {…} is filled from the campaign; a line whose indicator is missing is skipped.
 SCRIPTS = {
@@ -170,6 +170,8 @@ async def run():
     marker = await db.get_value("seed")
     if marker and marker.get("version") == VERSION:
         return 0
+    if marker:
+        await clear()                              # an older set: replace it
     rng = random.Random(2026)
     added = 0
     async with db.Session() as s:

@@ -60,6 +60,12 @@
    "value": "0.65 s median (text turns)",
    "target": "Under 0.7 s",
    "pass": true
+  },
+  {
+   "name": "Red-team set",
+   "value": "28 of 28 attacks handled",
+   "target": "All",
+   "pass": true
   }
  ],
  "run": {
@@ -72,7 +78,6 @@
   "note": "Simulated scammers and trainees (Claude Haiku 5.5) against the real agent, checks, extractor, director and playbook. Recall counts the details a simulated scammer actually gave. Scammer time is how long a simulated scammer stayed before hanging up; the decoy never ended a conversation first unless the director wound it down."
  },
  "not_measured": [
-  "Red-team set",
   "Voice response gap",
   "Scammer time against real scammers"
  ],

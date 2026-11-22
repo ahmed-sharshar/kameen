@@ -107,7 +107,7 @@ def make_truth(index, keys, rng):
     """Synthetic details for one simulated scammer. Same rules as the seed data."""
     everything = {
         "iban": seed.spaced(seed.iban(digits(16, rng))),
-        "phone": "059 7" + digits(2, rng) + " " + digits(4, rng),
+        "phone": "050 7" + digits(2, rng) + " " + digits(4, rng),
         "url": f"secure-desk-{index}{digits(2, rng)}.example.com/pay",
         "wallet": "0x" + "".join(rng.choice("0123456789abcdef") for _ in range(40)),
     }
@@ -391,8 +391,13 @@ def write_reports(report, path):
     """The full report stays out of the repository. The public part is what the Evidence page shows."""
     path.parent.mkdir(exist_ok=True)
     path.write_text(json.dumps(report, indent=1, ensure_ascii=False), encoding="utf-8")
-    (ROOT / "app" / "eval_latest.json").write_text(
-        json.dumps({k: report[k] for k in PUBLIC}, indent=1, ensure_ascii=False), encoding="utf-8")
+    public, latest = {k: report[k] for k in PUBLIC}, ROOT / "app" / "eval_latest.json"
+    if latest.exists():                                      # the red-team line comes from tests/redteam.py: keep it
+        kept = [m for m in json.loads(latest.read_text(encoding="utf-8"))["metrics"] if m["name"] == "Red-team set"]
+        if kept:
+            public["metrics"] = public["metrics"] + kept
+            public["not_measured"] = [n for n in public["not_measured"] if n != "Red-team set"]
+    latest.write_text(json.dumps(public, indent=1, ensure_ascii=False), encoding="utf-8")
     print()
     for m in report["metrics"]:
         print(f"  {'PASS' if m['pass'] else 'FAIL'}  {m['name']:34} {m['value']}   (target: {m['target']})")
