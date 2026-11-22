@@ -817,11 +817,15 @@
           metric = metric || {};
           var name = String(metric.name == null ? '' : metric.name);
           var foot = [];
+          /* "96% (76 of 79)" is shown as the figure "96%" with "76 of 79" underneath. */
+          var parts = /^(\d[\d.,]*%?(?: of \d+| s\b)?)\s+(.+)$/.exec(showNumber(metric.value));
+          var figure = parts ? parts[1] : showNumber(metric.value);
+          if (parts) foot.push(h('span', { class: 'figure-detail', text: parts[2].replace(/^\((.*)\)$/, '$1') }));
           if (metric.target != null && metric.target !== '') foot.push(h('span', { text: 'Target ' + showNumber(metric.target) }));
           if (metric.pass === true || metric.pass === false) {
             foot.push(h('span', { class: 'chip', 'data-tone': metric.pass ? 'pass' : 'fail', text: metric.pass ? 'Pass' : 'Fail' }));
           }
-          var card = tile(/\s/.test(name) ? name : humanize(name), showNumber(metric.value), foot.length ? foot : null);
+          var card = tile(/\s/.test(name) ? name : humanize(name), figure, foot.length ? foot : null);
           if (metric.pass === false) card.dataset.pass = 'false';
           box.appendChild(card);
         });

@@ -960,6 +960,7 @@ body.is-revealed { background: var(--reveal-paper); }
 .figure-name { font-size: 0.9rem; color: var(--ink-soft); overflow-wrap: anywhere; }
 .figure-value { font-size: 1.9rem; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .figure-foot { font-size: 0.85rem; color: var(--ink-soft); display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.figure-detail { flex-basis: 100%; color: var(--ink); }
 .figure-tile[data-pass="false"] { border-color: var(--red-line); }
 
 .bars { display: grid; gap: 0.55rem; max-width: 44rem; }
