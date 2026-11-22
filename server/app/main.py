@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-from . import agent, campaigns, cards, db, evidence, sessions, telegram, voice
+from . import agent, campaigns, cards, db, evidence, llm, sessions, telegram, voice
 from .director import make_playbook
 from .events import publish, subscribe
 
@@ -218,8 +218,14 @@ def find_conversation_id(body):
 async def completions(request: Request, authorization: str = Header(None)):
     secret = os.environ.get("LLM_SHARED_SECRET", "")
     if not secret or not hmac.compare_digest(authorization or "", f"Bearer {secret}"):
+        # Names only, never values: this shows which header ElevenLabs uses for the secret.
+        llm.log("voice request refused on", request.url.path, "| headers:",
+                sorted(h for h in request.headers.keys() if h.startswith(("auth", "x-", "xi-", "api"))))
         raise HTTPException(401)
     body = await request.json()
+    llm.log("voice request on", request.url.path, "| body keys:", sorted(body.keys()),
+            "| roles:", [m.get("role") for m in body.get("messages", [])],
+            "| extra body:", sorted((body.get("elevenlabs_extra_body") or {}).keys()))
     conv_id = find_conversation_id(body)
     user_text = next((str(m.get("content", "")) for m in reversed(body.get("messages", []))
                       if m.get("role") == "user"), "")
