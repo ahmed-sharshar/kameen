@@ -281,7 +281,9 @@ var OUTCOME_LABELS = {
   hesitated: 'Hesitated',
   would_comply: 'Would comply',
   attempted_disclosure: 'Attempted disclosure',
-  distress: 'Distress'
+  distress: 'Distress',
+  stopped: 'Stopped',
+  ignored: 'Ignored the message'
 };
 
 function labelFor(map, key) {

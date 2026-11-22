@@ -30,19 +30,21 @@ async def lifespan(_app):
         added = await seed.run()
         if added:
             llm.log("loaded", added, "seeded conversations")
-    sweeper = asyncio.create_task(sweep_idle())
+    await telegram.setup()                            # does nothing until a bot token is set
+    sweeper = asyncio.create_task(every_minute())
     yield
     sweeper.cancel()
 
 
-async def sweep_idle():
-    """Once a minute, close sessions that have gone quiet."""
+async def every_minute():
+    """The server's clock: send surprise drills that are due, close sessions that have gone quiet."""
     while True:
+        for job in (telegram.send_due, telegram.close_unanswered, agent.close_idle):
+            try:
+                await job()
+            except Exception as error:
+                llm.log(job.__name__, "failed:", repr(error))
         await asyncio.sleep(60)
-        try:
-            await agent.close_idle()
-        except Exception as error:
-            llm.log("idle sweep failed:", repr(error))
 
 
 app = FastAPI(title="Kameen", lifespan=lifespan)
@@ -300,6 +302,38 @@ async def events(conversation_id: str):
             yield f"data: {json.dumps(event)}\n\n" if event else ": ping\n\n"
     return StreamingResponse(stream(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.get("/invites", dependencies=[Depends(require_code)])
+async def list_invites():
+    """Surprise-drill invitations, with counts only. Nobody is listed by name or chat."""
+    invites = await db.list_invites()
+    for invite in invites:
+        invite["link"] = telegram.link(invite["code"])
+        invite["scenario"] = (cards.scenario(invite["scenario_id"] or "") or {}).get("title", "A different one each")
+    return {"telegram": telegram.configured() and telegram.BOT["username"] is not None,
+            "bot": telegram.BOT["username"], "invites": invites}
+
+
+@app.post("/invites", dependencies=[Depends(require_code)])
+async def new_invite(body: dict):
+    group = str(body.get("group_name", "")).strip()
+    language = body.get("language") if body.get("language") in ("en", "ar") else "en"
+    scenario_id = body.get("scenario_id") or None
+    try:
+        window = int(body.get("window_minutes", 0))
+    except (TypeError, ValueError):
+        window = 0
+    if not group:
+        raise HTTPException(400, "A group name is needed.")
+    if not 2 <= window <= 30 * 24 * 60:
+        raise HTTPException(400, "The window must be between 2 minutes and 30 days.")
+    if scenario_id:
+        card = cards.scenario(scenario_id, language)
+        if card is None or card["language"] != language or not card.get("approved_by"):
+            raise HTTPException(400, "That scenario is not approved in that language.")
+    code = await telegram.new_invite(group, scenario_id, language, window)
+    return {"code": code, "link": telegram.link(code)}
 
 
 @app.post("/telegram/webhook")

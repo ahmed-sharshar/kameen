@@ -242,6 +242,13 @@ h3 { font-size: 0.95rem; font-weight: 600; line-height: 1.3; }
 
 .field { display: block; }
 .field-label { display: block; font-size: 0.9rem; font-weight: 500; margin-bottom: 0.3rem; }
+.surprise-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.9rem; align-items: end; }
+#surprise .table-wrap { overflow-x: auto; }
+#surprise .table { min-width: 46rem; }
+.field select {
+  width: 100%; min-height: 2.75rem; padding: 0.5rem 0.7rem; font: inherit; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-s);
+}
 .field input[type="text"],
 .field input[type="password"],
 .input {

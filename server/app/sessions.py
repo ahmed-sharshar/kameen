@@ -8,6 +8,7 @@ VOICE_BY_LANGUAGE = {"en": "english", "ar": "emirati"}
 LANGUAGE_BY_VOICE = {"english": "en", "indian_english": "en", "emirati": "ar"}
 LANGUAGE_NAMES = {"en": "English", "ar": "Arabic"}
 TEXT_CHANNELS = ("sms", "whatsapp", "email")
+CHAT_CHANNELS = ("whatsapp", "sms", "email")          # a chat app reads best with the chat wording
 
 
 class SessionRefused(Exception):
@@ -40,7 +41,7 @@ async def check_consent(enrolment_id, channel):
 def _opening_line(lines, channel):
     if channel == "voice":
         return lines.get("voice", "")
-    for key in TEXT_CHANNELS:
+    for key in (CHAT_CHANNELS if channel == "telegram" else TEXT_CHANNELS):
         if lines.get(key):
             return lines[key]
     return lines.get("text", "")
@@ -74,11 +75,11 @@ async def start_conversation(mode, persona_id=None, scenario_id=None, enrolment_
         if not card.get("approved_by"):
             raise SessionRefused(f"Drill refused: the {LANGUAGE_NAMES[language]} version of this scenario card "
                                  "has not been approved.")
-        await check_consent(enrolment_id, "voice" if channel == "voice" else "web")
+        await check_consent(enrolment_id, channel if channel in ("voice", "telegram") else "web")
         opening = _opening_line(card["opening_line"], channel)
         conv = await db.create_conversation(
             mode="drill", channel=channel, language=card["language"], scenario_id=card["id"],
-            enrolment_id=enrolment_id, stage="PRETEXT",
+            enrolment_id=enrolment_id, external_id=external_id, stage="PRETEXT",
             voice_agent=voice or card.get("voice_agent") or VOICE_BY_LANGUAGE.get(card["language"], "english"),
             opening_line=opening, agent_digits=[d for d, _ in guards.digit_runs(opening, 4)])
         marker = "[call connected]" if channel == "voice" else "[conversation started]"

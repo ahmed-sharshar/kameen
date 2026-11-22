@@ -21,8 +21,10 @@ DRILL_OVER_LINE = "The drill has ended. You can hang up now."
 # Arabic lines are drafts: a native Emirati speaker must review them before Arabic drills are used for real.
 DRILL_TEXT = {
     "en": {"over": DRILL_OVER_LINE, "well_done": "Well done, you spotted it.",
+           "ignored": "You did not reply, which is the safest thing to do with a message like that.",
            "not_stored": "The numbers you gave were not stored.", "report": "To report a real attempt: "},
     "ar": {"over": "انتهى التمرين. تقدر تسكّر الخط الحين.", "well_done": "أحسنت، انتبهت لها.",
+           "ignored": "ما رديت على الرسالة، وهذا أسلم تصرف مع رسالة مثل هذي.",
            "not_stored": "الأرقام اللي قلتها ما انحفظت.", "report": "للتبليغ عن محاولة حقيقية: "},
 }
 background = set()
@@ -262,13 +264,15 @@ async def reveal_and_teach(conv, outcome):
     lines = [REVEAL_LINE.get(conv.language, REVEAL_LINE["en"])]
     if outcome == "resisted":
         lines.append(words["well_done"])
+    if outcome == "ignored":
+        lines.append(words["ignored"])
     if outcome == "attempted_disclosure":
         lines.append(words["not_stored"])
     lines += [lesson["headline"].rstrip(".") + ".", *lesson["three_points"],
               words["report"] + lesson["report_to"].rstrip(".") + "."]
     text = " ".join(lines)
     red_flags = conv.card.get("red_flags", [])
-    await db.finish_drill(conv, outcome, [] if outcome == "resisted" else red_flags)
+    await db.finish_drill(conv, outcome, [] if outcome in ("resisted", "ignored") else red_flags)
     await db.add_message(conv.id, "agent", text)
     await publish(conv.id, {"type": "drill_outcome", "outcome": outcome, "text": text,
                             "lesson": lesson, "red_flags": red_flags})

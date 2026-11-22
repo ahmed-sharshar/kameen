@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app import agent, cards, guards   # noqa: E402
+from app import agent, cards, guards, telegram   # noqa: E402
 
 rows = []          # (section, id, where it is used, English meaning, Arabic)
 counters = {}
@@ -32,6 +32,7 @@ add(A, "A", "Added when the trainee said a code or card number", en["not_stored"
 add(A, "A", "Introduces where to report (followed by the scenario's \"Where to report\" line)", en["report"], ar["report"])
 add(A, "A", "Said if the trainee keeps talking after the drill ended", en["over"], ar["over"])
 add(A, "A", "Said by the drill agent if the model gives no reply", "Hello, are you still with me?", "ألو، بعدك وياي؟")
+add(A, "A", "Added when a Telegram drill message was never answered", en["ignored"], ar["ignored"])
 
 # ---- B. The decoy persona -------------------------------------------------------------------
 B = "B. Abu Khalid, the decoy persona (a 70-year-old retired Emirati grandfather in Al Ain)"
@@ -100,6 +101,19 @@ add(E, "E", "The secret being asked for", "the code / the password / the PIN / t
 add(E, "E", "Words that would give the drill away too early", "Kameen / drill / training / simulation / not real",
     "كمين  ·  تمرين  ·  تدريب  ·  محاكاة  ·  مب حقيقي  ·  مش حقيقي  ·  غير حقيقي")
 add(E, "E", "Words that would reveal a machine", "artificial intelligence / language model", "ذكاء اصطناعي  ·  نموذج لغوي")
+# ---- F. Telegram: what the bot says around a surprise drill ---------------------------------
+F = "F. Telegram messages around a surprise drill (consent, waiting, leaving)"
+tg_en, tg_ar = telegram.TEXT["en"], telegram.TEXT["ar"]
+for key, where in [("consent", "Shown when a person opens the invite link. {group} and {window} are filled in"),
+                   ("joined", "After the person replies AGREE"), ("declined", "After any other reply"),
+                   ("waiting", "If an enrolled person writes before or after their drill"),
+                   ("left", "After /leave"), ("not_enrolled", "After /leave from someone who is not enrolled"),
+                   ("invalid", "The invite link is wrong or too old"), ("already", "The person is already enrolled")]:
+    add(F, "F", where, tg_en[key], tg_ar[key])
+add(F, "F", "The word that counts as agreement (please list other natural ways to say it)", "AGREE", "أوافق  ·  اوافق  ·  موافق")
+add(F, "F", "How the window is written: minutes, hours, days", "10 minutes  ·  3 hours  ·  3 days",
+    "  ·  ".join(tg_ar["units"][unit].format(n=n) for unit, n in (("minutes", 10), ("hours", 3), ("days", 3))))
+
 assert all(word in guards.SELF_REVEAL.pattern for word in ("كمين", "تمرين", "محاكاة"))   # the page matches the code
 
 # ---- the page -------------------------------------------------------------------------------

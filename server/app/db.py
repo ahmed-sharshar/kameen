@@ -125,6 +125,31 @@ class Event(Base):
     created_at: Mapped[float] = mapped_column(Float)
 
 
+class Invite(Base):
+    """An organiser's invitation to a surprise drill: one link for a whole group."""
+    __tablename__ = "invites"
+    code: Mapped[str] = mapped_column(String(16), primary_key=True)
+    group_name: Mapped[str] = mapped_column(String(80))
+    scenario_id: Mapped[str | None] = mapped_column(String(64), nullable=True)   # None: picked at random per person
+    language: Mapped[str] = mapped_column(String(8), default="en")
+    window_minutes: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[float] = mapped_column(Float)
+
+
+class ScheduledDrill(Base):
+    """One person's drill, waiting for its unannounced moment."""
+    __tablename__ = "scheduled_drills"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    invite_code: Mapped[str] = mapped_column(String(16), index=True)
+    enrolment_id: Mapped[str] = mapped_column(String(36))
+    chat: Mapped[str] = mapped_column(String(40), index=True)          # "tg:<chat id>"
+    scenario_id: Mapped[str] = mapped_column(String(64))
+    language: Mapped[str] = mapped_column(String(8), default="en")
+    due_at: Mapped[float] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(String(12), default="waiting")  # waiting, sent, cancelled, refused
+    conversation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+
 class KeyValue(Base):
     __tablename__ = "kv"
     key: Mapped[str] = mapped_column(String(40), primary_key=True)
@@ -142,7 +167,7 @@ def _state(row):
     """A plain object for one turn. Checks may change it; save_turn writes it back."""
     kit = row.canary_kit or {}
     return SimpleNamespace(
-        id=row.id, mode=row.mode, channel=row.channel, language=row.language,
+        id=row.id, mode=row.mode, channel=row.channel, language=row.language, external_id=row.external_id,
         persona_id=row.persona_id, scenario_id=row.scenario_id, enrolment_id=row.enrolment_id,
         stage=row.stage, status=row.status, turn_count=row.turn_count,
         awaiting_commit=row.awaiting_commit, voice_agent=row.voice_agent,
@@ -399,6 +424,92 @@ async def add_enrolment(person, group_name, handle, enrolled_by, channels, days=
     return row.id
 
 
+async def find_enrolment(handle, channel):
+    """The person's current consent for a channel, found by their handle. None if they have none."""
+    async with Session() as s:
+        rows = (await s.execute(select(Enrolment).where(Enrolment.handle == handle, Enrolment.expires_at > time.time())
+                                .order_by(Enrolment.consent_at.desc()))).scalars().all()
+    return next((row.id for row in rows if channel in row.channels), None)
+
+
+async def withdraw(handle):
+    """Ends every consent this handle gave and cancels drills still waiting. Returns how many consents ended."""
+    now = time.time()
+    async with Session() as s:
+        ended = (await s.execute(update(Enrolment).where(Enrolment.handle == handle, Enrolment.expires_at > now)
+                                 .values(expires_at=now))).rowcount
+        await s.execute(update(ScheduledDrill).where(ScheduledDrill.chat == handle, ScheduledDrill.status == "waiting")
+                        .values(status="cancelled"))
+        await s.commit()
+    return ended
+
+
+# ---- surprise drills -------------------------------------------------------
+
+async def add_invite(code, group_name, scenario_id, language, window_minutes):
+    async with Session() as s:
+        s.add(Invite(code=code, group_name=group_name[:80], scenario_id=scenario_id, language=language,
+                     window_minutes=window_minutes, created_at=time.time()))
+        await s.commit()
+
+
+async def get_invite(code, valid_days=14):
+    async with Session() as s:
+        row = await s.get(Invite, code)
+    if row is None or row.created_at < time.time() - valid_days * 86400:
+        return None
+    return SimpleNamespace(code=row.code, group_name=row.group_name, scenario_id=row.scenario_id,
+                           language=row.language, window_minutes=row.window_minutes)
+
+
+async def list_invites():
+    """Each invite with counts only: how many joined, are waiting, were sent, and finished."""
+    async with Session() as s:
+        invites = (await s.execute(select(Invite).order_by(Invite.created_at.desc()))).scalars().all()
+        drills = (await s.execute(select(ScheduledDrill))).scalars().all()
+        finished = set((await s.execute(select(DrillResult.conversation_id))).scalars().all())
+    rows = []
+    for invite in invites:
+        mine = [d for d in drills if d.invite_code == invite.code and d.status != "cancelled"]
+        rows.append({"code": invite.code, "group_name": invite.group_name, "scenario_id": invite.scenario_id,
+                     "language": invite.language, "window_minutes": invite.window_minutes,
+                     "created_at": invite.created_at, "joined": len(mine),
+                     "waiting": sum(d.status == "waiting" for d in mine),
+                     "sent": sum(d.status == "sent" for d in mine),
+                     "finished": sum(d.conversation_id in finished for d in mine)})
+    return rows
+
+
+async def add_scheduled(invite_code, enrolment_id, chat, scenario_id, language, due_at):
+    async with Session() as s:
+        s.add(ScheduledDrill(invite_code=invite_code, enrolment_id=enrolment_id, chat=chat, scenario_id=scenario_id,
+                             language=language, due_at=due_at))
+        await s.commit()
+
+
+async def due_drills():
+    async with Session() as s:
+        rows = (await s.execute(select(ScheduledDrill).where(
+            ScheduledDrill.status == "waiting", ScheduledDrill.due_at <= time.time()))).scalars().all()
+    return [SimpleNamespace(id=r.id, enrolment_id=r.enrolment_id, chat=r.chat, scenario_id=r.scenario_id,
+                            language=r.language) for r in rows]
+
+
+async def mark_scheduled(drill_id, status, conversation_id=None):
+    async with Session() as s:
+        await s.execute(update(ScheduledDrill).where(ScheduledDrill.id == drill_id)
+                        .values(status=status, conversation_id=conversation_id))
+        await s.commit()
+
+
+async def chat_language(chat):
+    """The language of this chat's latest drill, so later messages match it."""
+    async with Session() as s:
+        row = (await s.execute(select(ScheduledDrill).where(ScheduledDrill.chat == chat)
+                               .order_by(ScheduledDrill.id.desc()))).scalars().first()
+    return row.language if row else "en"
+
+
 async def get_enrolment(enrolment_id):
     async with Session() as s:
         row = await s.get(Enrolment, enrolment_id)
@@ -417,6 +528,12 @@ async def put_value(key, value):
             row.value = value
         else:
             s.add(KeyValue(key=key, value=value))
+        await s.commit()
+
+
+async def drop_value(key):
+    async with Session() as s:
+        await s.execute(delete(KeyValue).where(KeyValue.key == key))
         await s.commit()
 
 

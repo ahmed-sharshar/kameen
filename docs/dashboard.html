@@ -170,6 +170,45 @@
           </div>
         </div>
         <p class="empty" id="drills-empty">Loading drill results...</p>
+
+        <!-- Surprise drills -->
+        <div class="stack" id="surprise" style="margin-top: 2.5rem;">
+          <h2 class="section-title">Surprise drills by Telegram</h2>
+          <p class="small">Share one link with a group. Each person who opens it reads what will happen and must reply AGREE. They then get one unmarked scam message at a moment they cannot predict, inside the window you choose. Only counts are shown here, never who.</p>
+          <p class="note" id="surprise-note" hidden></p>
+          <form id="surprise-form" class="surprise-form">
+            <label class="field">
+              <span class="field-label">Group or department</span>
+              <input type="text" id="surprise-group" maxlength="80" autocomplete="off" required>
+            </label>
+            <label class="field">
+              <span class="field-label">Scenario</span>
+              <select id="surprise-scenario"><option value="">A different one for each person</option></select>
+            </label>
+            <label class="field">
+              <span class="field-label">Language</span>
+              <select id="surprise-language"><option value="en">English</option><option value="ar">Arabic</option></select>
+            </label>
+            <label class="field">
+              <span class="field-label">Send within</span>
+              <select id="surprise-window">
+                <option value="10">10 minutes (for a demo)</option>
+                <option value="60">1 hour</option>
+                <option value="480">8 hours</option>
+                <option value="1440">1 day</option>
+                <option value="4320" selected>3 days</option>
+                <option value="10080">7 days</option>
+              </select>
+            </label>
+            <button type="submit" class="btn" id="surprise-create" disabled>Create invite link</button>
+          </form>
+          <div class="table-wrap table-plain">
+            <table class="table">
+              <thead><tr><th scope="col">Group</th><th scope="col">Scenario</th><th scope="col">Window</th><th scope="col" class="num">Joined</th><th scope="col" class="num">Waiting</th><th scope="col" class="num">Sent</th><th scope="col" class="num">Finished</th><th scope="col">Invite link</th></tr></thead>
+              <tbody id="surprise-rows"></tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <!-- Evidence -->
@@ -231,7 +270,7 @@
         if (!ready) return;
         if (name === 'sessions') loadSessions();
         else if (name === 'campaigns') loadCampaigns();
-        else if (name === 'drills') loadDrills();
+        else if (name === 'drills') { loadDrills(); loadInvites(); }
         else if (name === 'evidence') loadEval();
       }
 
@@ -793,7 +832,95 @@
         }
       }
 
-      drillsRefresh.addEventListener('click', loadDrills);
+      drillsRefresh.addEventListener('click', function () { loadDrills(); loadInvites(); });
+
+      /* ================================================================ surprise drills */
+
+      var surpriseForm = $('#surprise-form');
+      var surpriseCreate = $('#surprise-create');
+      var surpriseNote = $('#surprise-note');
+      var scenariosLoaded = false;
+
+      function windowText(minutes) {
+        minutes = Number(minutes) || 0;
+        if (minutes < 120) return minutes + ' minutes';
+        if (minutes < 2880) return Math.round(minutes / 60) + ' hours';
+        return Math.round(minutes / 1440) + ' days';
+      }
+
+      function copyButton(link) {
+        var button = h('button', { type: 'button', class: 'btn btn-small', text: 'Copy link' });
+        button.addEventListener('click', function () {
+          var done = function () { button.textContent = 'Copied'; setTimeout(function () { button.textContent = 'Copy link'; }, 1500); };
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done, function () { window.prompt('Copy this link', link); });
+          else window.prompt('Copy this link', link);
+        });
+        return button;
+      }
+
+      function renderInvites(data) {
+        data = data || {};
+        var rows = $('#surprise-rows');
+        clearNode(rows);
+        surpriseCreate.disabled = !data.telegram;
+        if (!data.telegram) note(surpriseNote, 'Telegram is not connected yet. Add the bot token on the server to use surprise drills.', 'info');
+        else if (surpriseNote.dataset.kind !== 'error') note(surpriseNote, '');
+        var invites = data.invites || [];
+        if (!invites.length) {
+          rows.appendChild(h('tr', null, h('td', { colspan: '8', class: 'empty', text: 'No invites yet.' })));
+          return;
+        }
+        invites.forEach(function (invite) {
+          rows.appendChild(h('tr', null, [
+            setText(h('td'), invite.group_name),
+            setText(h('td'), invite.scenario + (invite.language === 'ar' ? ' (Arabic)' : '')),
+            h('td', { text: windowText(invite.window_minutes) }),
+            h('td', { class: 'num', text: showNumber(invite.joined) }),
+            h('td', { class: 'num', text: showNumber(invite.waiting) }),
+            h('td', { class: 'num', text: showNumber(invite.sent) }),
+            h('td', { class: 'num', text: showNumber(invite.finished) }),
+            h('td', null, invite.link ? copyButton(invite.link) : 'Not available')
+          ]));
+        });
+      }
+
+      async function loadInvites() {
+        try {
+          if (!scenariosLoaded) {
+            var listing = await apiGet('/cards');
+            (listing.scenarios || []).filter(function (s) { return s && s.approved === true; }).forEach(function (s) {
+              $('#surprise-scenario').appendChild(h('option', { value: s.id, text: s.title }));
+            });
+            scenariosLoaded = true;
+          }
+          renderInvites(await apiGet('/invites'));
+        } catch (err) {
+          if (authFailed(err)) return;
+          note(surpriseNote, 'Could not load invites: ' + err.message, 'error');
+        }
+      }
+
+      surpriseForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        var group = $('#surprise-group').value.trim();
+        if (!group || surpriseCreate.disabled) return;
+        surpriseCreate.disabled = true;
+        note(surpriseNote, '');
+        try {
+          await api('/invites', {
+            group_name: group,
+            scenario_id: $('#surprise-scenario').value || null,
+            language: $('#surprise-language').value,
+            window_minutes: Number($('#surprise-window').value)
+          });
+          $('#surprise-group').value = '';
+          await loadInvites();
+        } catch (err) {
+          if (authFailed(err)) return;
+          note(surpriseNote, 'Could not create the invite: ' + err.message, 'error');
+          surpriseCreate.disabled = false;
+        }
+      });
 
       /* ================================================================ evidence */
 

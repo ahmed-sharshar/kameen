@@ -82,6 +82,15 @@ The script asks the strongest model for a card in English and Emirati Arabic, ch
 
 In every drill the agent may not give an account number, IBAN, wallet, link, email address or phone number: a made-up one could belong to someone real. A reply that contains one is replaced by the card's commit question.
 
+## Telegram
+
+Set `TELEGRAM_BOT_TOKEN` (from @BotFather) and restart. At start-up the server asks Telegram for the bot's name and points its webhook at itself, using `RENDER_EXTERNAL_URL` or `PUBLIC_URL` and `TELEGRAM_WEBHOOK_SECRET`. There is no other step.
+
+- **Decoy.** Anyone who writes to the bot is treated as a scammer and gets the persona. The conversation shows on the dashboard like any other.
+- **Surprise drills.** On the dashboard's Drills tab an organiser creates an invite link for a group, with a scenario, a language and a window. A person who opens the link is shown what will happen and must reply AGREE; nothing is recorded otherwise, and no name is kept. One unmarked scam message then arrives at a random moment inside the window. The drill runs like any other and ends with the reveal and the lesson. `/leave` withdraws at once. A message nobody answers for twelve hours is revealed too, with the outcome `ignored`. The dashboard shows counts per invite, never who.
+
+The server sends due drills once a minute, so it has to be running at that moment. On a host that sleeps when idle, a drill that came due during sleep is sent as soon as the server next wakes.
+
 ## Sessions that go quiet
 
 Once a minute the server closes sessions nobody is in any more: a drill after 15 minutes without a message, a decoy session after two hours. A drill closed this way still gets the reveal and the lesson on its record, with the outcome `stopped`. Leaving the drill page does the same at once.
