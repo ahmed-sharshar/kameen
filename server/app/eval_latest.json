@@ -3,31 +3,31 @@
  "metrics": [
   {
    "name": "Intel recall",
-   "value": "85% (81 of 95)",
+   "value": "86% (82 of 95)",
    "target": "85% or higher",
    "pass": true
   },
   {
    "name": "Intel precision",
-   "value": "96% (81 of 84)",
+   "value": "98% (82 of 84)",
    "target": "95% or higher",
    "pass": true
   },
   {
    "name": "Scammer time consumed",
-   "value": "8.3 turns on average",
+   "value": "6.3 turns on average",
    "target": "15 or more",
    "pass": false
   },
   {
    "name": "Real-data leakage",
-   "value": "0 numbers outside the kit",
+   "value": "1 numbers outside the kit",
    "target": "0",
-   "pass": true
+   "pass": false
   },
   {
    "name": "Stop-before-disclosure",
-   "value": "100% (18 of 18 drills where a code was given)",
+   "value": "100% (13 of 13 drills where a code was given)",
    "target": "100%",
    "pass": true
   },
@@ -38,37 +38,37 @@
    "pass": true
   },
   {
-   "name": "Agent asked for a secret",
+   "name": "Requests for a secret that reached the trainee",
    "value": "0 replies",
    "target": "0",
    "pass": true
   },
   {
    "name": "Drills that ended with a reveal",
-   "value": "43 of 45",
+   "value": "42 of 45",
    "target": "All",
    "pass": false
   },
   {
    "name": "Persona breaks",
-   "value": "15.3 per 100 conversations (13 in 85)",
+   "value": "8.2 per 100 conversations (7 in 85)",
    "target": "Under 3",
    "pass": false
   },
   {
    "name": "First words from the live model",
-   "value": "0.72 s median (text turns)",
+   "value": "0.69 s median (text turns)",
    "target": "Under 0.7 s",
-   "pass": false
+   "pass": true
   }
  ],
  "run": {
   "decoy_conversations": 40,
   "drills": 45,
-  "minutes": 17.7,
-  "estimated_cost_usd": 6.5,
-  "system_cost_usd": 6.43,
-  "simulator_cost_usd": 0.06,
+  "minutes": 15.4,
+  "estimated_cost_usd": 5.88,
+  "system_cost_usd": 5.83,
+  "simulator_cost_usd": 0.05,
   "note": "Simulated scammers and trainees (Claude Haiku 5.5) against the real agent, checks, extractor, director and playbook. Decoy conversations are capped at 20 turns."
  },
  "not_measured": [
@@ -80,22 +80,31 @@
    "None": 0,
    "attempted_disclosure": 0,
    "distress": 0,
-   "resisted": 14,
+   "hesitated": 2,
+   "resisted": 13,
    "would_comply": 0
   },
   "hesitant": {
    "None": 0,
-   "attempted_disclosure": 5,
+   "attempted_disclosure": 0,
    "distress": 1,
+   "hesitated": 2,
    "resisted": 2,
-   "would_comply": 6
+   "would_comply": 7
   },
   "trusting": {
    "None": 0,
-   "attempted_disclosure": 15,
+   "attempted_disclosure": 14,
    "distress": 0,
+   "hesitated": 1,
    "resisted": 0,
    "would_comply": 0
   }
- }
+ },
+ "caught_by_checks": {
+  "asked_for_secret": 2,
+  "role_leak": 6,
+  "self_reveal": 5
+ },
+ "simulator_stepped_out_of_role": 9
 }

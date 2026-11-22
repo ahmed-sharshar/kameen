@@ -106,7 +106,7 @@ async def agent_turn_stream(conv_id, incoming_text):
 
     # 2. Live model, streamed sentence by sentence through the outbound checks.
     history = await db.get_history(conv_id)        # counterpart -> "user", agent -> "assistant"
-    spoken, buffer, self_reveal = [], "", False
+    spoken, buffer, self_reveal, off_role = [], "", False, False
     try:
         try:
             async for text in model_text(conv, history):
@@ -116,10 +116,15 @@ async def agent_turn_stream(conv_id, incoming_text):
                     if guards.reveals_drill(conv, sentence):
                         self_reveal = True
                         break
+                    caught = len(conv.guard_events)
                     safe = guards.check_outbound(conv, sentence)
                     spoken.append(safe)
                     yield safe
-                if self_reveal:
+                    if "role_leak" in conv.guard_events[caught:]:
+                        off_role = True             # the rest of this reply is likely off-role too: drop it
+                        break
+                if self_reveal or off_role:
+                    buffer = ""
                     break
                 buffer = parts[-1]
         except ModelRefused:

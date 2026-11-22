@@ -116,6 +116,12 @@ async def voice_session(body: dict):
 
 @app.post("/sessions/{conv_id}/kill", dependencies=[Depends(require_code)])
 async def kill(conv_id: str):
+    conv = await db.get_conversation(conv_id)
+    if conv is not None and conv.mode == "drill" and conv.status == "active":
+        # A drill never just stops: whoever ends it, the person is told it was a drill and gets the lesson.
+        async for _sentence in agent.reveal_and_teach(conv, "stopped"):
+            pass
+        return {"ok": True}
     await db.end_conversation(conv_id, status="killed")
     await publish(conv_id, {"type": "ended", "reason": "killed by operator"})
     return {"ok": True}

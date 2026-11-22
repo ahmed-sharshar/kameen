@@ -175,3 +175,27 @@ def test_saying_yes_outranks_the_directors_distress_flag():
     assert g.check_inbound(conv, "Yes, I have the code right here.")[1] == "would_comply"
     assert g.check_inbound(drill(risk_flags=["distress"]), "what do you want")[1] == "distress"
     assert g.check_inbound(drill(risk_flags=["distress"]), "I'm scared, yes I have it")[1] == "distress"
+
+
+def test_oh_is_a_zero_only_inside_a_number():
+    assert [d for d, _ in g.digit_runs("It is 6066. Oh sorry, I read it wrong.", 4)] == ["6066"]
+    assert [d for d, _ in g.digit_runs("oh four seven one nine", 4)] == ["4719"]
+    assert [d for d, _ in g.digit_runs("four oh seven one", 4)] == ["4071"]
+    conv = decoy()
+    sentence = "Let me read it slowly: 4719 5500 1234 8821. Oh sorry, wrong one."
+    assert g.check_outbound(conv, sentence) == sentence
+
+
+@pytest.mark.parametrize("text", [
+    "Before I pay anything, I'd rather check it myself.",
+    "Do you have a reference number I can look up on the official site?",
+    "I'm not comfortable sending it in a message like this.",
+    "I'll call the bank and ask them.",
+])
+def test_wanting_to_verify_elsewhere_counts_as_resisting(text):
+    assert g.check_inbound(drill(), text)[1] == "resisted"
+
+
+def test_agent_warning_the_trainee_hands_over_to_the_server():
+    assert g.reveals_drill(drill(), "Please don't send any codes here, check with the courier instead.")
+    assert not g.reveals_drill(drill(), "It will not appear on the official site until tomorrow.")

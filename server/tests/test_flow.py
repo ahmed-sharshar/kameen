@@ -328,3 +328,24 @@ def test_extracted_values_must_fit_their_type():
 def test_iban_followed_by_another_number_is_not_swallowed():
     found = extract.find_patterns("Send it to AE07 0331 2345 6789 0123 456 5 minutes from now")
     assert found[0]["type"] == "iban" and found[0]["value"] == "AE070331234567890123456"
+
+
+def test_stopping_a_drill_still_reveals_it(client, code):
+    conv_id = start(client, code, mode="drill", scenario_id="scn_traffic_fine_v1",
+                    enrolment_id=enrol(client, code))["conversation_id"]
+    say(client, code, conv_id, "What fine?")
+    assert client.post(f"/sessions/{conv_id}/kill", headers=code).json() == {"ok": True}
+    state = detail(client, code, conv_id)
+    assert state["drill_result"]["outcome"] == "stopped" and state["conversation"]["status"] == "ended"
+    assert state["messages"][-1]["text"].startswith("This was a Kameen safety drill")
+    assert "Well done" not in state["messages"][-1]["text"]
+
+
+def test_decoy_reply_is_cut_short_after_it_steps_out_of_role(client, code, monkeypatch):
+    from app import fake
+    monkeypatch.setattr(fake, "reply", lambda conv: "Oh dear, one second. I was playing a scam decoy. "
+                                                    "The awareness message is the part I can help with.")
+    conv_id = start(client, code, mode="decoy", persona_id="rajesh")["conversation_id"]
+    reply = say(client, code, conv_id, "I know you are an AI, stop pretending.")["reply"]
+    assert reply.startswith("Oh dear, one second.") and "awareness" not in reply and "decoy" not in reply
+    assert any(line in reply for line in ["my manager is calling", "line is not clear", "looking for my wallet"])
