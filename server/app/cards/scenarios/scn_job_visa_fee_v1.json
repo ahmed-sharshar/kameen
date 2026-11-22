@@ -58,10 +58,10 @@
     "callback_number"
   ],
   "source_ref": "drafted by scripts/new_scenario.py",
-  "approved_by": null,
+  "approved_by": "Ahmed Sharshar, 2026-11-22",
   "translations": {
     "ar": {
-      "approved_by": null,
+      "approved_by": "Ahmed Sharshar, 2026-11-22",
       "opening_line": {
         "voice": "مرحبا، معاك وكالة توظيف دولية. ملفك انختار لوظيفة مشرف براتب 18,000 درهم في الشهر مع سكن.",
         "whatsapp": "مرحبا، معاك موظف توظيف من وكالة توظيف دولية. ملفك انختار لوظيفة مشرف براتب 18,000 درهم في الشهر مع سكن، فاضي نتكلم؟",

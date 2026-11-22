@@ -52,10 +52,10 @@
     "callback_number"
   ],
   "source_ref": "drafted by scripts/new_scenario.py",
-  "approved_by": null,
+  "approved_by": "Ahmed Sharshar, 2026-11-22",
   "translations": {
     "ar": {
-      "approved_by": null,
+      "approved_by": "Ahmed Sharshar, 2026-11-22",
       "opening_line": {
         "whatsapp": "هلا، إنت سألت عن السيارة الـ SUV. هي محجوزة من الجمارك، عشان جي ببيعها بـ 35,000 درهم، بس وايد ناس يسألون عنها اليوم.",
         "voice": "السلام عليكم، أتصل بخصوص السيارة المسحوبة اللي كنت مهتم فيها. لازم تنباع هالأسبوع، وأول واحد يحول العربون ياخذها."
