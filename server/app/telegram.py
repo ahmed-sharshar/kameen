@@ -2,10 +2,15 @@
 
 Decoy: anyone who writes to the bot is treated as a scammer and gets a persona that stalls them.
 
+Drill on request: /drill makes the bot play a scammer against the person who asked, straight away.
+The first time, they are shown what will happen and must reply AGREE.
+
 Surprise drill: a person opens an organiser's invite link, reads what will happen and replies AGREE.
 At an unannounced moment inside the organiser's window the bot sends one simulated scam message.
-The drill then runs like any other: it stops before anything real is shared, reveals itself and
-teaches the lesson. A person who agreed is never sent to the decoy, and /leave withdraws at once.
+
+Either drill runs like any other: it stops before anything real is shared, reveals itself and
+teaches the lesson. The bot never plays a scammer to someone who has not agreed, and /leave
+withdraws at once. A person who agreed reaches the decoy only by asking for it with /start.
 """
 import hashlib
 import os
@@ -24,7 +29,11 @@ QUIET_HOURS = 12                    # a drill message nobody answered is closed,
 AGREE = re.compile(r"^\W*((yes,? )?i agree|agree|أوافق|اوافق|موافق)\W*$", re.I)
 
 DECOY_INTRO = ("Kameen decoy test. You play the scammer; an AI persona will answer. "
-               "This is a simulation. Send your first message to begin, or /start to restart.")
+               "This is a simulation. Send your first message to begin, or /start to restart. "
+               "To switch roles and have Kameen play a scammer against you, send /drill.")
+COMMANDS = [{"command": "drill", "description": "Kameen plays a scammer against you"},
+            {"command": "start", "description": "You play the scammer; an AI victim answers"},
+            {"command": "leave", "description": "Withdraw from drills"}]
 # Arabic lines are drafts: a native Emirati speaker must review them.
 TEXT = {
     "en": {
@@ -34,7 +43,14 @@ TEXT = {
                    "reported, never your name. Reply AGREE to take part. Any other reply keeps you out.",
         "joined": "You are enrolled. The drill message will arrive within {window}. Send /leave at any time to withdraw.",
         "declined": "You have not been enrolled. Open the invite link again if you change your mind.",
-        "waiting": "You are enrolled in a Kameen drill. There is nothing to do now. Send /leave to withdraw.",
+        "waiting": "You are enrolled in Kameen drills. Send /drill for a practice scam right now, /start to play "
+                   "the scammer against the AI victim, or /leave to withdraw.",
+        "practice": "Kameen practice drill. If you agree, Kameen will play a scammer in this chat right now. It "
+                    "stops before you share anything real, then tells you it was a drill and what to watch for. "
+                    "No name is stored. Reply AGREE to start. Any other reply cancels.",
+        "cancelled": "Cancelled. Send /drill if you change your mind.",
+        "running": "A drill is already running in this chat. Reply to it, or send /leave to stop.",
+        "none_ready": "No drill scenario is available in that language yet.",
         "left": "You have left. No more drill messages will be sent to you.",
         "not_enrolled": "You are not enrolled in a drill.",
         "invalid": "This invite link is not valid or has expired.",
@@ -48,7 +64,14 @@ TEXT = {
                    "رد بكلمة «أوافق» عشان تشارك. أي رد ثاني يعني إنك ما تبي تشارك.",
         "joined": "تم تسجيلك. رسالة التمرين بتوصلك خلال {window}. طرّش /leave في أي وقت عشان تنسحب.",
         "declined": "ما تم تسجيلك. افتح رابط الدعوة مرة ثانية إذا غيرت رايك.",
-        "waiting": "إنت مسجل في تمرين كمين. ما في شي مطلوب منك الحين. طرّش /leave عشان تنسحب.",
+        "waiting": "إنت مسجل في تمارين كمين. طرّش /drill عشان تبدا تمرين الحين، أو /start عشان تمثل إنت دور "
+                   "المحتال، أو /leave عشان تنسحب.",
+        "practice": "تمرين تجريبي من كمين. إذا وافقت، كمين بيمثل دور محتال في هالمحادثة الحين. التمرين يوقف قبل لا "
+                    "تشارك أي شي حقيقي، وعقبها يخبرك إنه تمرين وشو تنتبه له. ما ينحفظ اسمك. "
+                    "رد بكلمة «أوافق» عشان نبدا. أي رد ثاني يلغي التمرين.",
+        "cancelled": "تم الإلغاء. طرّش /drill إذا غيرت رايك.",
+        "running": "في تمرين شغال الحين في هالمحادثة. رد عليه، أو طرّش /leave عشان توقفه.",
+        "none_ready": "ما في سيناريو تمرين جاهز بهاللغة للحين.",
         "left": "تم انسحابك. ما بتوصلك أي رسايل تمرين ثانية.",
         "not_enrolled": "إنت مب مسجل في أي تمرين.",
         "invalid": "رابط الدعوة مب صحيح أو انتهت مدته.",
@@ -100,6 +123,7 @@ async def setup():
     BOT["username"] = me.get("username")
     base = (os.environ.get("PUBLIC_URL") or os.environ.get("RENDER_EXTERNAL_URL") or "").rstrip("/")
     secret = webhook_secret()
+    await call("setMyCommands", {"commands": COMMANDS})        # the menu people see when they type "/"
     if base and secret:
         done = await call("setWebhook", {"url": base + "/telegram/webhook", "secret_token": secret,
                                          "allowed_updates": ["message"]})
@@ -140,28 +164,74 @@ async def handle(update):
         return await offer(chat_id, chat, argument.strip())
     if command == "/leave":
         return await leave(chat_id, chat)
+    if command == "/drill":
+        return await practice(chat_id, chat, "ar" if argument.strip().lower() in ("ar", "arabic", "عربي") else "en")
 
     pending = await db.get_value("join:" + chat)
-    if pending:                                              # they were shown the consent text and now answer it
+    if pending:                                              # they were shown a consent text and now answer it
         await db.drop_value("join:" + chat)
-        if AGREE.match(text):
-            return await join(chat_id, chat, pending["code"])
-        return await send(chat_id, TEXT[pending.get("language", "en")]["declined"])
+        language = pending.get("language", "en")
+        if not AGREE.match(text):
+            return await send(chat_id, TEXT[language]["cancelled" if pending.get("practice") else "declined"])
+        if pending.get("practice"):
+            await sessions.enrol("Telegram member", "Telegram practice", handle=chat, channels=["telegram"])
+            return await start_drill(chat_id, chat, language)
+        return await join(chat_id, chat, pending["code"])
 
     conv = await db.find_by_external(chat)
     if conv is not None and conv.mode == "drill":           # the drill is on: this is the trainee's reply
         parts = [s async for s in agent.agent_turn_stream(conv.id, text)]
         return await send(chat_id, " ".join(parts))
-    if await db.find_enrolment(chat, "telegram"):           # agreed to a drill: never the decoy
-        return await send(chat_id, TEXT[await db.chat_language(chat)]["waiting"])
 
-    if command == "/start" or conv is None:                 # anyone else plays the scammer against the decoy
+    # From here on the person is the one playing the scammer, against the decoy.
+    agreed = await db.find_enrolment(chat, "telegram")
+    if command == "/start" or (conv is None and not agreed):
         if conv is not None:
             await db.end_conversation(conv.id)
         await sessions.start_conversation(mode="decoy", persona_id="rajesh", channel="telegram", external_id=chat)
         return await send(chat_id, DECOY_INTRO)
+    if conv is None:                                        # agreed to drills and has not asked for the decoy
+        return await send(chat_id, TEXT[await db.chat_language(chat)]["waiting"])
     parts = [s async for s in agent.agent_turn_stream(conv.id, text)]
     await send(chat_id, " ".join(parts))
+
+
+def pick_scenario(language, wanted=None):
+    """The wanted card if it is approved in this language, otherwise any approved one. None if there is none."""
+    approved = [card_id for card_id in cards.SCENARIOS
+                if cards.scenario(card_id, language)["language"] == language
+                and cards.scenario(card_id, language).get("approved_by")]
+    return wanted if wanted in approved else (random.choice(approved) if approved else None)
+
+
+async def practice(chat_id, chat, language):
+    """/drill: the person asks the bot to play a scammer against them, now."""
+    conv = await db.find_by_external(chat)
+    if conv is not None and conv.mode == "drill":
+        return await send(chat_id, TEXT[conv.language]["running"])
+    if await db.find_enrolment(chat, "telegram"):           # they agreed before: the request is enough
+        return await start_drill(chat_id, chat, language)
+    await db.put_value("join:" + chat, {"practice": True, "language": language})
+    await send(chat_id, TEXT[language]["practice"])
+
+
+async def start_drill(chat_id, chat, language):
+    """Starts a drill the person asked for themselves. Consent is still checked."""
+    scenario_id = pick_scenario(language)
+    if scenario_id is None:
+        return await send(chat_id, TEXT[language]["none_ready"])
+    open_chat = await db.find_by_external(chat)
+    if open_chat is not None:                                # a decoy chat they had open is closed
+        await db.end_conversation(open_chat.id)
+    try:
+        conv = await sessions.start_conversation(
+            mode="drill", scenario_id=scenario_id, enrolment_id=await db.find_enrolment(chat, "telegram"),
+            channel="telegram", external_id=chat, voice="emirati" if language == "ar" else "english",
+            own_request=True)
+    except sessions.SessionRefused as reason:
+        return await send(chat_id, str(reason))
+    agent.run_later(make_playbook(conv.id))
+    await send(chat_id, conv.opening_line)
 
 
 async def offer(chat_id, chat, code):
@@ -182,9 +252,7 @@ async def join(chat_id, chat, code):
     invite = await db.get_invite(code)
     if invite is None:
         return await send(chat_id, TEXT["en"]["invalid"])
-    approved = [c["id"] for c in cards.SCENARIOS.values() if cards.scenario(c["id"], invite.language).get("approved_by")
-                and cards.scenario(c["id"], invite.language)["language"] == invite.language]
-    scenario_id = invite.scenario_id if invite.scenario_id in approved else (random.choice(approved) if approved else None)
+    scenario_id = pick_scenario(invite.language, invite.scenario_id)
     if scenario_id is None:
         return await send(chat_id, TEXT["en"]["invalid"])
     # No name is kept: the chat is the only link to the person, and results are reported by group.
@@ -215,6 +283,9 @@ async def send_due():
     """Sends every drill whose moment has come. Consent is checked again at that moment."""
     sent = 0
     for drill in await db.due_drills():
+        open_chat = await db.find_by_external(drill.chat)
+        if open_chat is not None and open_chat.mode == "drill":      # a drill they asked for is running: wait
+            continue
         try:
             conv = await sessions.start_conversation(
                 mode="drill", scenario_id=drill.scenario_id, enrolment_id=drill.enrolment_id, channel="telegram",
@@ -223,6 +294,8 @@ async def send_due():
             llm.log("scheduled drill not sent:", str(reason))
             await db.mark_scheduled(drill.id, "refused")
             continue
+        if open_chat is not None:                                # a decoy chat they had open is closed
+            await db.end_conversation(open_chat.id)
         await db.mark_scheduled(drill.id, "sent", conv.id)
         agent.run_later(make_playbook(conv.id))
         await send(drill.chat[3:], conv.opening_line)

@@ -108,7 +108,11 @@ for key, where in [("consent", "Shown when a person opens the invite link. {grou
                    ("joined", "After the person replies AGREE"), ("declined", "After any other reply"),
                    ("waiting", "If an enrolled person writes before or after their drill"),
                    ("left", "After /leave"), ("not_enrolled", "After /leave from someone who is not enrolled"),
-                   ("invalid", "The invite link is wrong or too old"), ("already", "The person is already enrolled")]:
+                   ("invalid", "The invite link is wrong or too old"), ("already", "The person is already enrolled"),
+                   ("practice", "Shown the first time a person sends /drill to ask for a practice scam"),
+                   ("cancelled", "After any reply other than AGREE to the practice question"),
+                   ("running", "If /drill is sent while a drill is already running"),
+                   ("none_ready", "If no scenario is approved in the chosen language")]:
     add(F, "F", where, tg_en[key], tg_ar[key])
 add(F, "F", "The word that counts as agreement (please list other natural ways to say it)", "AGREE", "أوافق  ·  اوافق  ·  موافق")
 add(F, "F", "How the window is written: minutes, hours, days", "10 minutes  ·  3 hours  ·  3 days",

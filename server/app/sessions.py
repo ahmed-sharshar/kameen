@@ -22,8 +22,11 @@ async def enrol(person, group_name, handle="", enrolled_by="self", channels=None
                                   channels or ["web", "voice"])
 
 
-async def check_consent(enrolment_id, channel):
-    """Every drill passes through here. There is no override."""
+async def check_consent(enrolment_id, channel, own_request=False):
+    """Every drill passes through here. There is no override of consent.
+
+    The cooldown protects people from being drilled too often by someone else, so it does
+    not apply when the person asked for this drill themselves."""
     enrolment = await db.get_enrolment(enrolment_id) if enrolment_id else None
     if enrolment is None:
         raise SessionRefused("Drill refused: this person is not enrolled. Drills need recorded consent.")
@@ -33,7 +36,7 @@ async def check_consent(enrolment_id, channel):
     if channel not in enrolment.channels:
         raise SessionRefused(f"Drill refused: this person did not agree to the {channel} channel.")
     cooldown = float(os.environ.get("DRILL_COOLDOWN_HOURS", "168")) * 3600
-    if enrolment.last_drill_at and now - enrolment.last_drill_at < cooldown:
+    if not own_request and enrolment.last_drill_at and now - enrolment.last_drill_at < cooldown:
         raise SessionRefused("Drill refused: this person was drilled recently. The cooldown has not passed.")
     return enrolment
 
@@ -48,7 +51,7 @@ def _opening_line(lines, channel):
 
 
 async def start_conversation(mode, persona_id=None, scenario_id=None, enrolment_id=None,
-                             channel="web", external_id=None, voice=None):
+                             channel="web", external_id=None, voice=None, own_request=False):
     if mode == "decoy":
         persona = cards.persona(persona_id or "rajesh")
         if persona is None:
@@ -75,7 +78,7 @@ async def start_conversation(mode, persona_id=None, scenario_id=None, enrolment_
         if not card.get("approved_by"):
             raise SessionRefused(f"Drill refused: the {LANGUAGE_NAMES[language]} version of this scenario card "
                                  "has not been approved.")
-        await check_consent(enrolment_id, channel if channel in ("voice", "telegram") else "web")
+        await check_consent(enrolment_id, channel if channel in ("voice", "telegram") else "web", own_request)
         opening = _opening_line(card["opening_line"], channel)
         conv = await db.create_conversation(
             mode="drill", channel=channel, language=card["language"], scenario_id=card["id"],

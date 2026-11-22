@@ -87,6 +87,8 @@ In every drill the agent may not give an account number, IBAN, wallet, link, ema
 Set `TELEGRAM_BOT_TOKEN` (from @BotFather) and restart. At start-up the server asks Telegram for the bot's name and points its webhook at itself, using `RENDER_EXTERNAL_URL` or `PUBLIC_URL` and `TELEGRAM_WEBHOOK_SECRET`. There is no other step.
 
 - **Decoy.** Anyone who writes to the bot is treated as a scammer and gets the persona. The conversation shows on the dashboard like any other.
+- **Drill on request.** `/drill` (or `/drill ar` for Arabic) makes the bot play a scammer against the person who asked, straight away. The first time, they are shown what will happen and must reply AGREE. The cooldown does not apply to a drill a person asks for themselves.
+- **Switching roles.** A person who agreed to drills reaches the decoy by sending `/start`, and goes back to being the target with `/drill`.
 - **Surprise drills.** On the dashboard's Drills tab an organiser creates an invite link for a group, with a scenario, a language and a window. A person who opens the link is shown what will happen and must reply AGREE; nothing is recorded otherwise, and no name is kept. One unmarked scam message then arrives at a random moment inside the window. The drill runs like any other and ends with the reveal and the lesson. `/leave` withdraws at once. A message nobody answers for twelve hours is revealed too, with the outcome `ignored`. The dashboard shows counts per invite, never who.
 
 The server sends due drills once a minute, so it has to be running at that moment. On a host that sleeps when idle, a drill that came due during sleep is sent as soon as the server next wakes.

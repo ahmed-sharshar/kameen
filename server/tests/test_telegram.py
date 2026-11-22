@@ -166,3 +166,79 @@ def test_webhook_needs_telegrams_secret(client, monkeypatch, outbox):
     assert secret and all(ch.isalnum() for ch in secret)           # only characters Telegram accepts
     assert client.post("/telegram/webhook", json=update_body, headers={header: secret}).status_code == 200
     assert outbox[-1][1] == telegram.DECOY_INTRO
+
+
+# ---- /drill: the bot plays a scammer against the person who asks ------------------------------
+
+def opening_lines(language):
+    from app import cards
+    return {line for card_id in cards.SCENARIOS
+            for line in cards.scenario(card_id, language)["opening_line"].values()}
+
+
+def test_drill_on_request_needs_agreement_the_first_time(client, code, outbox):
+    chat_id = next(chats)
+    chat = f"tg:{chat_id}"
+    tell(client, chat_id, "/drill")
+    assert outbox[-1][1] == telegram.TEXT["en"]["practice"]
+    assert client.portal.call(db.find_by_external, chat) is None          # nothing has started
+    tell(client, chat_id, "not sure")
+    assert outbox[-1][1] == telegram.TEXT["en"]["cancelled"]
+    assert client.portal.call(db.find_enrolment, chat, "telegram") is None
+
+    tell(client, chat_id, "/drill")
+    tell(client, chat_id, "agree")
+    assert outbox[-1][1] in opening_lines("en")                           # the scammer's first message, at once
+    conv = client.portal.call(db.find_by_external, chat)
+    assert conv.mode == "drill" and conv.channel == "telegram"
+    tell(client, chat_id, "/drill")
+    assert outbox[-1][1] == telegram.TEXT["en"]["running"]
+
+    tell(client, chat_id, "my code is 472916")
+    assert outbox[-1][1].startswith("This was a Kameen safety drill")
+    assert "472916" not in str(client.get(f"/sessions/{conv.id}", headers=code).json())
+
+
+def test_one_account_can_switch_between_both_roles(client, code, outbox, monkeypatch):
+    monkeypatch.setenv("DRILL_COOLDOWN_HOURS", "168")                      # a drill you ask for ignores the cooldown
+    chat_id = next(chats)
+    chat = f"tg:{chat_id}"
+    tell(client, chat_id, "/drill")
+    tell(client, chat_id, "AGREE")
+    tell(client, chat_id, "stop")
+    assert "Well done" in outbox[-1][1]
+
+    tell(client, chat_id, "hello")                                         # agreed, and asked for nothing: the menu
+    assert outbox[-1][1] == telegram.TEXT["en"]["waiting"]
+    tell(client, chat_id, "/start")                                        # now they play the scammer
+    assert outbox[-1][1] == telegram.DECOY_INTRO
+    tell(client, chat_id, "This is your bank, your account is frozen.")
+    decoy = client.portal.call(db.find_by_external, chat)
+    assert decoy.mode == "decoy" and outbox[-1][1] not in (telegram.DECOY_INTRO, telegram.TEXT["en"]["waiting"])
+
+    tell(client, chat_id, "/drill")                                        # back to being the target: no second consent
+    assert outbox[-1][1] in opening_lines("en")
+    drill = client.portal.call(db.find_by_external, chat)
+    assert drill.mode == "drill"
+    assert client.get(f"/sessions/{decoy.id}", headers=code).json()["conversation"]["status"] == "ended"
+
+
+def test_drill_on_request_in_arabic(client, code, outbox):
+    chat_id = next(chats)
+    tell(client, chat_id, "/drill ar")
+    assert outbox[-1][1] == telegram.TEXT["ar"]["practice"]
+    tell(client, chat_id, "أوافق")
+    assert outbox[-1][1] in opening_lines("ar")
+    tell(client, chat_id, "وقف")
+    assert outbox[-1][1].startswith("هذا كان تمرين توعوي من كمين")
+
+
+def test_a_surprise_drill_waits_while_a_requested_drill_is_running(client, code, outbox):
+    chat_id, _ = enrolled(client, code, outbox)
+    chat = f"tg:{chat_id}"
+    tell(client, chat_id, "/drill")                                        # already agreed through the invite
+    assert outbox[-1][1] in opening_lines("en")
+    client.portal.call(make_due, chat)
+    assert client.portal.call(telegram.send_due) == 0                      # not on top of a running drill
+    tell(client, chat_id, "stop")
+    assert client.portal.call(telegram.send_due) == 1
