@@ -3,7 +3,10 @@
   "title": "Bank security team: suspicious transaction",
   "scam_type": "bank_impersonation",
   "impersonates": "bank security team",
-  "channels": ["voice", "sms"],
+  "channels": [
+    "voice",
+    "sms"
+  ],
   "language": "en",
   "difficulty": 2,
   "hook": "A suspicious payment was blocked on your card and must be verified now",
@@ -11,7 +14,11 @@
     "voice": "Good afternoon, this is the security team at your bank. We have blocked a suspicious payment on your card and I need to verify it with you.",
     "sms": "Bank Security: a suspicious payment was attempted on your card. If this was not you, reply to this message now so we can block it."
   },
-  "pressure_tactics": ["urgency", "authority", "fear_of_loss"],
+  "pressure_tactics": [
+    "urgency",
+    "authority",
+    "fear_of_loss"
+  ],
   "stage_goals": {
     "PRETEXT": "Establish that a suspicious payment was attempted and that you are from the bank's security team",
     "PRESSURE": "Say the payment will go through within minutes unless the card is verified on this call",
@@ -19,8 +26,17 @@
   },
   "ask": "one-time password",
   "commit_question": "Do you have the six-digit code we just sent to your phone in front of you?",
-  "commit_signals": ["i will read the code", "let me check my messages", "one second i have it", "i got the code"],
-  "red_flags": ["The bank called you, you did not call the bank", "Pressure to act within minutes", "A request for a one-time code"],
+  "commit_signals": [
+    "i will read the code",
+    "let me check my messages",
+    "one second i have it",
+    "i got the code"
+  ],
+  "red_flags": [
+    "The bank called you, you did not call the bank",
+    "Pressure to act within minutes",
+    "A request for a one-time code"
+  ],
   "lesson": {
     "headline": "Your bank will never ask for a one-time code",
     "three_points": [
@@ -30,7 +46,41 @@
     ],
     "report_to": "contact the Aman service of Abu Dhabi Police"
   },
-  "decoy_targets": ["callback_number", "iban", "name"],
+  "decoy_targets": [
+    "callback_number",
+    "iban",
+    "name"
+  ],
+  "translations": {
+    "ar": {
+      "approved_by": null,
+      "opening_line": {
+        "voice": "السلام عليكم، معاك قسم الأمان في البنك. وقّفنا عملية دفع مشبوهة على بطاقتك ولازم نتأكد منها وياك الحين.",
+        "sms": "أمن البنك: صارت محاولة دفع مشبوهة على بطاقتك. إذا ما كنت إنت، رد على هالرسالة الحين عشان نوقفها."
+      },
+      "commit_question": "الرمز اللي وصلك على تلفونك من ستة أرقام، موجود جدامك الحين؟",
+      "commit_signals": [
+        "بقرا لك الرمز",
+        "بعطيك الرمز",
+        "لحظة بشوف الرسايل",
+        "وصلني الرمز"
+      ],
+      "red_flags": [
+        "البنك هو اللي اتصل فيك، مب إنت اللي اتصلت",
+        "ضغط عشان تتصرف خلال دقايق",
+        "طلب رمز التحقق"
+      ],
+      "lesson": {
+        "headline": "البنك ما يطلب منك رمز التحقق أبداً",
+        "three_points": [
+          "رمز التحقق يوافق على عملية دفع. أي حد يطلبه يبي ياخذ فلوسك، مب يحميها.",
+          "موظف البنك الحقيقي ما يستعجلك. سكّر الخط واتصل على الرقم المكتوب على بطاقتك.",
+          "إذا المتصل يعرف اسمك أو جزء من رقم بطاقتك، هذا ما يثبت شي."
+        ],
+        "report_to": "تواصل مع خدمة أمان في شرطة أبوظبي"
+      }
+    }
+  },
   "source_ref": null,
   "approved_by": "Ahmed Sharshar, 2026-11-21"
 }

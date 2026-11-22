@@ -17,6 +17,13 @@ REVEAL_LINE = {
     "ar": "هذا كان تمرين توعوي من كمين. أنت بأمان، وما تم جمع أي معلومات.",
 }
 DRILL_OVER_LINE = "The drill has ended. You can hang up now."
+# Arabic lines are drafts: a native Emirati speaker must review them before Arabic drills are used for real.
+DRILL_TEXT = {
+    "en": {"over": DRILL_OVER_LINE, "well_done": "Well done, you spotted it.",
+           "not_stored": "The numbers you gave were not stored.", "report": "To report a real attempt: "},
+    "ar": {"over": "انتهى التمرين. تقدر تسكّر الخط الحين.", "well_done": "أحسنت، انتبهت لها.",
+           "not_stored": "الأرقام اللي قلتها ما انحفظت.", "report": "للتبليغ عن محاولة حقيقية: "},
+}
 background = set()
 pending_saves = {}
 
@@ -168,7 +175,8 @@ async def voice_turn_stream(conv_id, incoming_text, caller_turns):
         if conv.mode == "drill" and conv.status == "ended":
             # A drill must never end in silence. If the reveal was given for a turn that
             # ElevenLabs then re-sent, it was not heard: say it again.
-            yield (await db.last_agent_message(conv_id)) if resent else DRILL_OVER_LINE
+            yield (await db.last_agent_message(conv_id)) if resent else DRILL_TEXT.get(
+                conv.language, DRILL_TEXT["en"])["over"]
         return
 
     if resent:
@@ -224,13 +232,14 @@ async def classify_commit(conv, masked_text):
 async def reveal_and_teach(conv, outcome):
     """The server, not the model, speaks the reveal and the lesson."""
     lesson = conv.card["lesson"]
+    words = DRILL_TEXT.get(conv.language, DRILL_TEXT["en"])
     lines = [REVEAL_LINE.get(conv.language, REVEAL_LINE["en"])]
     if outcome == "resisted":
-        lines.append("Well done, you spotted it.")
+        lines.append(words["well_done"])
     if outcome == "attempted_disclosure":
-        lines.append("The numbers you gave were not stored.")
+        lines.append(words["not_stored"])
     lines += [lesson["headline"].rstrip(".") + ".", *lesson["three_points"],
-              "To report a real attempt: " + lesson["report_to"].rstrip(".") + "."]
+              words["report"] + lesson["report_to"].rstrip(".") + "."]
     text = " ".join(lines)
     red_flags = conv.card.get("red_flags", [])
     await db.finish_drill(conv, outcome, [] if outcome == "resisted" else red_flags)

@@ -20,19 +20,25 @@ SAFE_WORD = re.compile(
     r"|is this real|are you (a |an )?(bot|robot|ai)\b"
     r"|^\W*(وقف|خلاص|خلاص وقف|وقف خلاص)\W*$", re.I)
 REFUSAL = re.compile(r"\bscam\b|\bfraud\b|i will not|i won'?t|not giving|call the bank myself"
-                     r"|report (you|this)|احتيال|نصب", re.I)
-DISTRESS = re.compile(r"i'?m scared|i am scared|please don'?t|i'?m confused|i am confused|خايف", re.I)
+                     r"|report (you|this)|احتيال|نصب|ما بعطيك|ما راح أعطيك|ما راح اعطيك|بتصل بالبنك", re.I)
+DISTRESS = re.compile(r"i'?m scared|i am scared|please don'?t|i'?m confused|i am confused|خايف|مب فاهم|ما فهمت شي",
+                      re.I)
 COMMIT = re.compile(r"my code is|the code is|here is the code|i will read|i'?ll read|let me get my card"
                     r"|i have it in front|الرمز هو|هذا الرمز|بعطيك الرمز", re.I)   # full phrases only
 YES = re.compile(r"^(yes|yeah|yep|ok|okay|sure|i do|i have|ready|go ahead|نعم|اي|ايه|هيه|تمام|موجود)\b", re.I)
+# Arabic lists below are drafts: a native Emirati speaker must review them before Arabic drills are used for real.
 ASKS_FOR_SECRET = re.compile(
     r"\b(read|tell|give|say|type|share|enter)\b.{0,40}\b(code|otp|password|pin|card number|cvv)\b"
-    r"|what(?:'s| is) (the|your) (code|otp|pin|password)", re.I)
-ROLE_LEAK = re.compile(r"as an ai|language model|system prompt|playbook|\bclaude\b|anthropic|\bkameen\b", re.I)
+    r"|what(?:'s| is) (the|your) (code|otp|pin|password)"
+    r"|(اقر[اأ]|عط(ني|نا)|[اأ]عط(ني|نا)|قول|قل لي|طرش|[اأ]رسل|اكتب|دخ[ّ]?ل|شو|كم).{0,40}"
+    r"(الرمز|الكود|كلمة السر|الرقم السري|رقم البطاقة|رقم بطاقتك)", re.I)
+ROLE_LEAK = re.compile(r"as an ai|language model|system prompt|playbook|\bclaude\b|anthropic|\bkameen\b"
+                       r"|ذكاء اصطناعي|نموذج لغوي", re.I)
 # The drill agent must never announce the drill: the server does that, with the lesson attached.
 SELF_REVEAL = re.compile(r"\bkameen\b|\b(a|an|the|this) (training )?(drill|simulation|exercise)\b"
                          r"|training (drill|exercise|simulation)|not a real (call|payment|bank|fine|parcel|message)"
-                         r"|i('m| am) going to stop here", re.I)
+                         r"|i('m| am) going to stop here"
+                         r"|كمين|تمرين|تدريب|محاكاة|مب حقيقي|مش حقيقي|غير حقيقي", re.I)
 
 REVEAL_VERDICTS = {"resisted", "attempted_disclosure", "would_comply", "distress"}
 
@@ -93,7 +99,9 @@ def fallback_line(conv):
     if conv.mode == "decoy":
         return stall_line(conv)
     examples = (conv.playbook or {}).get(conv.stage, {}).get("example_lines", [])
-    return examples[0] if examples else "Hello, are you still with me?"
+    if examples:
+        return examples[0]
+    return "ألو، بعدك وياي؟" if getattr(conv, "language", "en") == "ar" else "Hello, are you still with me?"
 
 
 def reveals_drill(conv, sentence):
@@ -120,7 +128,7 @@ def check_outbound(conv, sentence):
         conv.guard_events.append("asked_for_secret")
         conv.awaiting_commit = True
         return question
-    if plain(question) in plain(sentence) or "in front of you" in sentence.lower():
+    if plain(question) in plain(sentence) or "in front of you" in sentence.lower() or "جدامك" in sentence:
         conv.awaiting_commit = True
     conv.agent_digits += [d for d, _ in digit_runs(sentence, 4)]
     return sentence

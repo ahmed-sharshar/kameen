@@ -86,6 +86,16 @@
           </div>
         </fieldset>
 
+        <fieldset>
+          <legend class="group-label">Voice and language</legend>
+          <div class="segmented">
+            <label><input type="radio" name="voice" value="english" checked><span>English</span></label>
+            <label><input type="radio" name="voice" value="indian_english"><span>Indian English</span></label>
+            <label><input type="radio" name="voice" value="emirati"><span>Arabic</span></label>
+          </div>
+          <p class="small" style="margin-top: 0.6rem;">Arabic runs the whole drill in Arabic, in text or on a call.</p>
+        </fieldset>
+
         <div class="actions">
           <button type="button" class="btn btn-primary" id="start" disabled>Start drill</button>
         </div>
@@ -435,7 +445,8 @@
             mode: 'drill',
             scenario_id: scenario.id,
             enrolment_id: enrolment,
-            channel: voice ? 'voice' : 'web'
+            channel: voice ? 'voice' : 'web',
+            voice: ($('input[name="voice"]:checked') || {}).value || 'english'
           }, true);
         } catch (err) {
           activeScenario = null;

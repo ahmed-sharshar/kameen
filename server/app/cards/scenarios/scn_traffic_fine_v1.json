@@ -3,7 +3,11 @@
   "title": "Unpaid traffic fine",
   "scam_type": "government_impersonation",
   "impersonates": "traffic authority",
-  "channels": ["sms", "whatsapp", "voice"],
+  "channels": [
+    "sms",
+    "whatsapp",
+    "voice"
+  ],
   "language": "en",
   "difficulty": 2,
   "hook": "You have an unpaid fine and your licence will be suspended today",
@@ -11,7 +15,11 @@
     "sms": "Traffic Dept: you have an unpaid traffic fine. Pay today to avoid suspension of your licence. Reply to this message for payment options.",
     "voice": "Hello, this is the traffic department calling about an unpaid fine on your file."
   },
-  "pressure_tactics": ["urgency", "authority", "fear_of_penalty"],
+  "pressure_tactics": [
+    "urgency",
+    "authority",
+    "fear_of_penalty"
+  ],
   "stage_goals": {
     "PRETEXT": "Establish the fine and that it is overdue",
     "PRESSURE": "Warn that the licence is suspended today unless the fine is paid now, and offer to settle it immediately",
@@ -19,8 +27,16 @@
   },
   "ask": "card number and one-time password",
   "commit_question": "Do you have your card and the code in front of you?",
-  "commit_signals": ["i will read the code", "let me get my card", "one second i have it"],
-  "red_flags": ["The message did not come from an official channel", "A threat with a same-day deadline", "A request for card details and a one-time code"],
+  "commit_signals": [
+    "i will read the code",
+    "let me get my card",
+    "one second i have it"
+  ],
+  "red_flags": [
+    "The message did not come from an official channel",
+    "A threat with a same-day deadline",
+    "A request for card details and a one-time code"
+  ],
   "lesson": {
     "headline": "The police never ask for your card details or a one-time code",
     "three_points": [
@@ -30,7 +46,40 @@
     ],
     "report_to": "contact the Aman service of Abu Dhabi Police"
   },
-  "decoy_targets": ["payment_link", "iban", "callback_number"],
+  "decoy_targets": [
+    "payment_link",
+    "iban",
+    "callback_number"
+  ],
+  "translations": {
+    "ar": {
+      "approved_by": null,
+      "opening_line": {
+        "sms": "إدارة المرور: عليك مخالفة مرورية غير مدفوعة. ادفعها اليوم عشان ما تتوقف رخصتك. رد على هالرسالة لخيارات الدفع.",
+        "voice": "السلام عليكم، معاك إدارة المرور بخصوص مخالفة غير مدفوعة على ملفك."
+      },
+      "commit_question": "بطاقتك والرمز موجودين جدامك الحين؟",
+      "commit_signals": [
+        "بقرا لك الرمز",
+        "لحظة بجيب البطاقة",
+        "البطاقة عندي"
+      ],
+      "red_flags": [
+        "الرسالة ما يت من قناة رسمية",
+        "تهديد بمهلة تخلص اليوم",
+        "طلب بيانات البطاقة ورمز التحقق"
+      ],
+      "lesson": {
+        "headline": "الشرطة ما تطلب بيانات بطاقتك ولا رمز التحقق",
+        "three_points": [
+          "المخالفات تندفع بس من التطبيقات والمواقع الرسمية، مب بقراية البطاقة لمتصل.",
+          "مهلة اليوم أسلوب ضغط. المخالفة الحقيقية ما تختفي إذا خذت ساعة تتأكد.",
+          "تأكد من أي مخالفة بنفسك في التطبيق الرسمي قبل لا ترد على أي رسالة."
+        ],
+        "report_to": "تواصل مع خدمة أمان في شرطة أبوظبي"
+      }
+    }
+  },
   "source_ref": null,
   "approved_by": "Ahmed Sharshar, 2026-11-21"
 }

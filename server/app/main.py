@@ -4,6 +4,7 @@ import json
 import os
 import re
 import time
+from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -86,6 +87,7 @@ async def new_session(body: dict):
             scenario_id=body.get("scenario_id"),
             enrolment_id=body.get("enrolment_id"),        # required for drills
             channel="voice" if body.get("channel") == "voice" else "web",
+            voice=body.get("voice"),                      # drills only: english, indian_english or emirati
         )
     except sessions.SessionRefused as reason:             # no consent, cooldown, unapproved card
         raise HTTPException(403, str(reason))
@@ -193,7 +195,12 @@ async def drills_summary():
 
 @app.get("/eval/latest", dependencies=[Depends(require_code)])
 async def eval_latest():
-    return await db.get_value("eval") or {}
+    """The latest test metrics: an uploaded run if there is one, else the run shipped with the code."""
+    uploaded = await db.get_value("eval")
+    if uploaded:
+        return uploaded
+    bundled = Path(__file__).parent / "eval_latest.json"
+    return json.loads(bundled.read_text(encoding="utf-8")) if bundled.exists() else {}
 
 
 @app.post("/eval", dependencies=[Depends(require_admin)])

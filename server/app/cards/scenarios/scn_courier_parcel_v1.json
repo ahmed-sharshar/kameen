@@ -3,15 +3,24 @@
   "title": "Courier holding a parcel for a small fee",
   "scam_type": "delivery_impersonation",
   "impersonates": "courier company",
-  "channels": ["sms", "whatsapp"],
+  "channels": [
+    "sms",
+    "whatsapp",
+    "voice"
+  ],
   "language": "en",
   "difficulty": 1,
   "hook": "Your parcel is on hold until a small customs fee is paid",
   "opening_line": {
     "sms": "Courier notice: your parcel is on hold. A small customs fee is due before delivery. Reply to this message to arrange payment.",
-    "whatsapp": "Hello, this is the courier service. Your parcel is on hold at our depot for a small customs fee. Can I help you clear it now?"
+    "whatsapp": "Hello, this is the courier service. Your parcel is on hold at our depot for a small customs fee. Can I help you clear it now?",
+    "voice": "Hello, this is the courier service calling about a parcel that is on hold for you."
   },
-  "pressure_tactics": ["small_amount", "urgency", "helpfulness"],
+  "pressure_tactics": [
+    "small_amount",
+    "urgency",
+    "helpfulness"
+  ],
   "stage_goals": {
     "PRETEXT": "Establish that a parcel is waiting and a small fee is due",
     "PRESSURE": "Say the parcel is returned to the sender tonight unless the fee is paid now, and that it only takes a minute",
@@ -19,8 +28,17 @@
   },
   "ask": "card details",
   "commit_question": "Do you have your bank card in front of you so we can clear the fee?",
-  "commit_signals": ["let me get my card", "i have my card", "ok i will pay", "where do i enter my card"],
-  "red_flags": ["You were not expecting a parcel", "A tiny fee used to collect full card details", "A return-to-sender deadline tonight"],
+  "commit_signals": [
+    "let me get my card",
+    "i have my card",
+    "ok i will pay",
+    "where do i enter my card"
+  ],
+  "red_flags": [
+    "You were not expecting a parcel",
+    "A tiny fee used to collect full card details",
+    "A return-to-sender deadline tonight"
+  ],
   "lesson": {
     "headline": "A small fee is the bait; your card details are the prize",
     "three_points": [
@@ -30,7 +48,41 @@
     ],
     "report_to": "contact the Aman service of Abu Dhabi Police"
   },
-  "decoy_targets": ["payment_link", "callback_number"],
+  "decoy_targets": [
+    "payment_link",
+    "callback_number"
+  ],
+  "translations": {
+    "ar": {
+      "approved_by": null,
+      "opening_line": {
+        "sms": "إشعار من شركة التوصيل: شحنتك موقوفة. في رسوم جمركية بسيطة لازم تندفع قبل التوصيل. رد على هالرسالة لترتيب الدفع.",
+        "whatsapp": "هلا، معاك خدمة التوصيل. شحنتك موقوفة عندنا في المستودع على رسوم جمركية بسيطة. تبي أساعدك تخلصها الحين؟",
+        "voice": "السلام عليكم، معاك شركة التوصيل بخصوص شحنة موقوفة باسمك."
+      },
+      "commit_question": "بطاقتك البنكية موجودة جدامك عشان نخلص الرسوم؟",
+      "commit_signals": [
+        "لحظة بجيب البطاقة",
+        "البطاقة عندي",
+        "أوكي بدفع",
+        "وين أدخل بيانات البطاقة"
+      ],
+      "red_flags": [
+        "ما كنت تنتظر أي شحنة",
+        "رسوم بسيطة عشان ياخذون بيانات بطاقتك كاملة",
+        "مهلة ترجيع الشحنة الليلة"
+      ],
+      "lesson": {
+        "headline": "الرسوم البسيطة طُعم، وبيانات بطاقتك هي الهدف",
+        "three_points": [
+          "شركات التوصيل ما تحصّل رسوم جمركية برسالة. تتبّع شحنتك بنفسك من الموقع الرسمي للشركة.",
+          "المحتال يطلب مبلغ بسيط عشان تحس إن إعطاء بيانات البطاقة ما فيه ضرر.",
+          "إذا ما كنت تنتظر شحنة، فما في شحنة."
+        ],
+        "report_to": "تواصل مع خدمة أمان في شرطة أبوظبي"
+      }
+    }
+  },
   "source_ref": null,
   "approved_by": "Ahmed Sharshar, 2026-11-21"
 }

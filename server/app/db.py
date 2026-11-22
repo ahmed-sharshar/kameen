@@ -150,7 +150,8 @@ def _state(row):
         playbook=row.playbook, canary_kit=kit, started_at=row.started_at,
         voice_started_at=row.voice_started_at,
         persona=cards.persona(row.persona_id) if row.persona_id else None,
-        card=cards.scenario(row.scenario_id) if row.scenario_id else None,
+        card=cards.scenario(row.scenario_id, row.language if row.mode == "drill" else None)
+        if row.scenario_id else None,
         canary_digits=canaries.kit_digits(kit),
         counterpart_digits=list(row.counterpart_digits or []),
         agent_digits=list(row.agent_digits or []),

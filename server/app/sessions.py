@@ -5,6 +5,8 @@ import time
 from . import canaries, cards, db, guards
 
 VOICE_BY_LANGUAGE = {"en": "english", "ar": "emirati"}
+LANGUAGE_BY_VOICE = {"english": "en", "indian_english": "en", "emirati": "ar"}
+LANGUAGE_NAMES = {"en": "English", "ar": "Arabic"}
 TEXT_CHANNELS = ("sms", "whatsapp", "email")
 
 
@@ -45,7 +47,7 @@ def _opening_line(lines, channel):
 
 
 async def start_conversation(mode, persona_id=None, scenario_id=None, enrolment_id=None,
-                             channel="web", external_id=None):
+                             channel="web", external_id=None, voice=None):
     if mode == "decoy":
         persona = cards.persona(persona_id or "rajesh")
         if persona is None:
@@ -60,17 +62,24 @@ async def start_conversation(mode, persona_id=None, scenario_id=None, enrolment_
         marker = "[call connected]"
 
     elif mode == "drill":
-        card = cards.scenario(scenario_id or "")
-        if card is None:
+        original = cards.scenario(scenario_id or "")
+        if original is None:
             raise SessionRefused("Unknown scenario.")
+        # The chosen voice sets the language of the whole drill: an Arabic voice means an Arabic drill.
+        voice = voice if voice in LANGUAGE_BY_VOICE else None
+        language = LANGUAGE_BY_VOICE.get(voice, original["language"])
+        card = cards.scenario(original["id"], language)
+        if card["language"] != language:
+            raise SessionRefused(f"Drill refused: this scenario has no {LANGUAGE_NAMES[language]} version yet.")
         if not card.get("approved_by"):
-            raise SessionRefused("Drill refused: this scenario card has not been approved.")
+            raise SessionRefused(f"Drill refused: the {LANGUAGE_NAMES[language]} version of this scenario card "
+                                 "has not been approved.")
         await check_consent(enrolment_id, "voice" if channel == "voice" else "web")
         opening = _opening_line(card["opening_line"], channel)
         conv = await db.create_conversation(
             mode="drill", channel=channel, language=card["language"], scenario_id=card["id"],
             enrolment_id=enrolment_id, stage="PRETEXT",
-            voice_agent=card.get("voice_agent") or VOICE_BY_LANGUAGE.get(card["language"], "english"),
+            voice_agent=voice or card.get("voice_agent") or VOICE_BY_LANGUAGE.get(card["language"], "english"),
             opening_line=opening, agent_digits=[d for d, _ in guards.digit_runs(opening, 4)])
         marker = "[call connected]" if channel == "voice" else "[conversation started]"
 
