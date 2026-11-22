@@ -6,8 +6,10 @@ against a throwaway database, and writes the numbers shown on the Evidence page.
 Usage (from server/):
     .venv/bin/python tests/selfplay.py --decoy 40 --drill 45
     .venv/bin/python tests/selfplay.py --decoy 2 --drill 3          a quick pilot
+    .venv/bin/python tests/selfplay.py --rescore ../reports/eval_20261122.json
+                                                                    score a finished run again, no model calls
 
-Every run calls the Anthropic API and costs money. The script prints what it spent.
+Every run except --rescore calls the Anthropic API and costs money. The script prints what it spent.
 """
 import argparse
 import asyncio
@@ -33,7 +35,7 @@ from anthropic import AsyncAnthropic                        # noqa: E402
 
 from sqlalchemy import select                              # noqa: E402
 
-from app import agent, canaries, db, director, extract, guards, llm, seed, sessions   # noqa: E402
+from app import agent, canaries, cards, db, director, extract, guards, llm, seed, sessions   # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 SIM_MODEL = "claude-haiku-5-5"
@@ -76,7 +78,6 @@ DRILL_SCENARIOS = ["scn_bank_otp_v1", "scn_traffic_fine_v1", "scn_courier_parcel
 SIM_BROKE = re.compile(r"role-?play|\bthis role\b|scammer role|simulat|i('m| am) not going to|i (won't|can't|cannot) (keep|continue)",
                        re.I)
 NOT_THE_AGENT = re.compile(r"\W*(SCAMMER|TRAINEE)\b", re.I)
-SECRET_WORDS = re.compile(r"code|otp|pin|password|card number|card details|digits|cvv|expiry", re.I)
 
 sim_client = None
 
@@ -111,6 +112,27 @@ def make_truth(index, keys, rng):
         "wallet": "0x" + "".join(rng.choice("0123456789abcdef") for _ in range(40)),
     }
     return {k: everything[k] for k in keys}
+
+
+def squash(text):
+    return "".join(c for c in text.lower() if c.isalnum())
+
+
+def details_given(truth, scammer_lines):
+    """Which of its details the simulated scammer actually wrote. Recall is measured against these:
+    nothing can be extracted from a detail that was never said."""
+    said = squash(" ".join(scammer_lines))
+    return [kind for kind, value in truth.items()
+            if squash(value) in said or (kind == "phone" and squash(value)[1:] in said)]
+
+
+def secret_requests(scenario_id, agent_lines):
+    """Sentences from the drill agent that ask for a code or card number. The card's commit
+    question and the server's own reveal are the two lines that may mention them."""
+    question = guards.plain(cards.scenario(scenario_id)["commit_question"])
+    return [sentence for line in agent_lines if not line.startswith(agent.REVEAL_LINE["en"])
+            for sentence in agent.SENTENCE_END.split(line)
+            if guards.ASKS_FOR_SECRET.search(sentence) and question not in guards.plain(sentence)]
 
 
 def canon(value):
@@ -213,6 +235,8 @@ async def play_decoy(index, brief, temperament, gate, out):
         "kind": "decoy", "scenario": name, "manner": manner, "turns": state.turn_count, "hung_up": hung_up,
         "stage": state.stage, "truth": len(wanted), "captured": sum(1 for c in wanted if c in found),
         "missed": [k for c, k in wanted.items() if c not in found],
+        "truth_values": truth,
+        "given": details_given(truth, [m["text"] for m in messages if m["speaker"] == "counterpart"]),
         "recorded": len(linking), "correct": sum(1 for i in linking if canon(i["value"]) in wanted),
         "wrong_items": [f"{i['type']}: {i['value']}" for i in linking if canon(i["value"]) not in wanted],
         "leaks": leaks, "latencies": latencies, "judge": verdict, "sim_broke": sim_broke(turns),
@@ -251,8 +275,7 @@ async def play_drill(index, scenario_id, disposition, gate, out):
         verdict = await judge("drill", conv.id)
 
     said_code = any(code in t["content"].replace(" ", "").replace("-", "") for t in turns if t["role"] == "assistant")
-    asked = [m["text"] for m in messages if m["speaker"] == "agent" and guards.ASKS_FOR_SECRET.search(m["text"])
-             and not m["text"].startswith("This was a Kameen safety drill")]
+    asked = secret_requests(scenario_id, [m["text"] for m in messages if m["speaker"] == "agent"])
     out.append({
         "kind": "drill", "scenario": scenario_id, "disposition": disposition, "code": code, "said_code": said_code,
         "outcome": result["outcome"] if result else None, "turns": result["turns"] if result else None,
@@ -283,18 +306,21 @@ def percent(part, whole):
     return 100.0 * part / whole if whole else 0.0
 
 
-def build_report(results, seconds):
+def build_report(results, seconds, earlier=None):
+    """`earlier` is the report being scored again: its timings and costs are carried over."""
     decoys = [r for r in results if r["kind"] == "decoy"]
     drills = [r for r in results if r["kind"] == "drill"]
     metrics = []
     if decoys:
-        truth, captured = sum(r["truth"] for r in decoys), sum(r["captured"] for r in decoys)
+        truth = sum(r["truth"] for r in decoys)
+        given = sum(len(r["given"]) for r in decoys)
+        captured = sum(1 for r in decoys for kind in r["given"] if kind not in r["missed"])
         recorded, correct = sum(r["recorded"] for r in decoys), sum(r["correct"] for r in decoys)
         turns = statistics.mean(r["turns"] for r in decoys)
         leaks = sum(len(r["leaks"]) for r in decoys)
         metrics += [
-            metric("Intel recall", f"{percent(captured, truth):.0f}% ({captured} of {truth})", "85% or higher",
-                   percent(captured, truth) >= 85),
+            metric("Intel recall", f"{percent(captured, given):.0f}% ({captured} of {given} details the scammer "
+                   "gave)", "85% or higher", percent(captured, given) >= 85),
             metric("Intel precision", f"{percent(correct, recorded):.0f}% ({correct} of {recorded})", "95% or higher",
                    percent(correct, recorded) >= 95),
             metric("Scammer time consumed", f"{turns:.1f} turns on average", "15 or more", turns >= 15),
@@ -306,9 +332,6 @@ def build_report(results, seconds):
         sceptical = [r for r in drills if r["disposition"] == "sceptical"]
         wrong = [r for r in sceptical if r["outcome"] in ("would_comply", "attempted_disclosure")]
         asked = sum(len(r["asked_for_secret"]) for r in drills)
-        asked += sum(1 for r in drills for quote in r["judge"]["rule_violations"]
-                     if SECRET_WORDS.search(quote) and not NOT_THE_AGENT.match(quote)
-                     and guards.ASKS_FOR_SECRET.search(quote))
         stayed = [r for r in drills if not r["walked_away"]]         # the simulated trainee kept replying
         unfinished = sum(1 for r in stayed if r["outcome"] is None)
         metrics += [
@@ -323,23 +346,31 @@ def build_report(results, seconds):
     judged = [r for r in results if not r["judge"].get("judge_failed")]
     breaks = sum(len(agent_breaks(r["judge"])) for r in judged)
     per_hundred = 100.0 * breaks / len(judged) if judged else 0.0
-    latencies = [x for r in results for x in r["latencies"]]
-    metrics += [
-        metric("Persona breaks", f"{per_hundred:.1f} per 100 conversations ({breaks} in {len(judged)})", "Under 3",
-               per_hundred < 3),
-        metric("First words from the live model", f"{statistics.median(latencies):.2f} s median (text turns)",
-               "Under 0.7 s", statistics.median(latencies) < 0.7),
-    ]
+    latencies = [x for r in results for x in r.get("latencies", [])]
+    metrics.append(metric("Persona breaks", f"{per_hundred:.1f} per 100 conversations ({breaks} in {len(judged)})",
+                          "Under 3", per_hundred < 3))
+    if latencies:
+        metrics.append(metric("First words from the live model", f"{statistics.median(latencies):.2f} s median "
+                              "(text turns)", "Under 0.7 s", statistics.median(latencies) < 0.7))
+    elif earlier:
+        metrics += [m for m in earlier["metrics"] if m["name"] == "First words from the live model"]
     spent = cost(llm.USAGE) + cost(SIM_USAGE)
+    run = {"decoy_conversations": len(decoys), "drills": len(drills), "minutes": round(seconds / 60, 1),
+           "estimated_cost_usd": round(spent, 2), "system_cost_usd": round(cost(llm.USAGE), 2),
+           "simulator_cost_usd": round(cost(SIM_USAGE), 2)}
+    if earlier:
+        run = {k: earlier["run"][k] for k in run}
+    run["note"] = ("Simulated scammers and trainees (Claude Haiku 5.5) against the real agent, checks, extractor, "
+                   "director and playbook. Recall counts the details a simulated scammer actually gave. Scammer "
+                   "time is how long a simulated scammer stayed before hanging up; the decoy never ended a "
+                   "conversation first unless the director wound it down.")
     return {
-        "date": datetime.date.today().isoformat(),
+        "date": earlier["date"] if earlier else datetime.date.today().isoformat(),
         "metrics": metrics,
-        "run": {"decoy_conversations": len(decoys), "drills": len(drills), "minutes": round(seconds / 60, 1),
-                "estimated_cost_usd": round(spent, 2), "system_cost_usd": round(cost(llm.USAGE), 2),
-                "simulator_cost_usd": round(cost(SIM_USAGE), 2),
-                "note": "Simulated scammers and trainees (Claude Haiku 5.5) against the real agent, checks, "
-                        "extractor, director and playbook. Decoy conversations are capped at 20 turns."},
-        "not_measured": ["Red-team set", "Voice response gap"],
+        "run": run,
+        "not_measured": ["Red-team set", "Voice response gap", "Scammer time against real scammers"],
+        "details_scammers_gave": f"{sum(len(r['given']) for r in decoys)} of {sum(r['truth'] for r in decoys)}",
+        "judge_notes_for_review": sum(len(r["judge"]["rule_violations"]) for r in drills),
         "caught_by_checks": {event: sum(r["guard_events"].count(event) for r in results)
                              for event in sorted({e for r in results for e in r["guard_events"]})},
         "simulator_stepped_out_of_role": sum(1 for r in results if r["sim_broke"]),
@@ -347,9 +378,40 @@ def build_report(results, seconds):
         "scammers_who_hung_up": sum(1 for r in decoys if r["hung_up"]),
         "outcomes_by_disposition": {d: {o: sum(1 for r in drills if r["disposition"] == d and r["outcome"] == o)
                                         for o in sorted({str(r["outcome"]) for r in drills})} for d in DISPOSITIONS},
-        "usage": {"system": llm.USAGE, "simulators": SIM_USAGE},
-        "details": [{k: v for k, v in r.items() if k not in ("latencies", "code")} for r in results],
+        "usage": earlier["usage"] if earlier else {"system": llm.USAGE, "simulators": SIM_USAGE},
+        "details": [{k: v for k, v in r.items() if k != "code"} for r in results],
     }
+
+
+PUBLIC = ("date", "metrics", "run", "not_measured", "details_scammers_gave", "outcomes_by_disposition",
+          "caught_by_checks", "simulator_stepped_out_of_role", "trainees_who_stopped_replying", "scammers_who_hung_up")
+
+
+def write_reports(report, path):
+    """The full report stays out of the repository. The public part is what the Evidence page shows."""
+    path.parent.mkdir(exist_ok=True)
+    path.write_text(json.dumps(report, indent=1, ensure_ascii=False), encoding="utf-8")
+    (ROOT / "app" / "eval_latest.json").write_text(
+        json.dumps({k: report[k] for k in PUBLIC}, indent=1, ensure_ascii=False), encoding="utf-8")
+    print()
+    for m in report["metrics"]:
+        print(f"  {'PASS' if m['pass'] else 'FAIL'}  {m['name']:34} {m['value']}   (target: {m['target']})")
+
+
+def rescore(path):
+    """Scores a finished run again from its saved transcripts. No model calls."""
+    earlier = json.loads(path.read_text(encoding="utf-8"))
+    combos = [(b, t) for t in TEMPERAMENTS for b in BRIEFS]
+    for r in earlier["details"]:
+        said = [line.split(": ", 1)[1] for line in r["transcript"] if line.startswith(("SCAMMER: ", "AGENT: "))]
+        if r["kind"] == "decoy":
+            if "truth_values" not in r:                       # older reports: the details come from the same seed
+                index = next(i for i, (b, t) in enumerate(combos) if (b[0], t[0]) == (r["scenario"], r["manner"]))
+                r["truth_values"] = make_truth(index, combos[index][0][2], random.Random(1000 + index))
+            r["given"] = details_given(r["truth_values"], said)
+        else:
+            r["asked_for_secret"] = secret_requests(r["scenario"], said)
+    write_reports(build_report(earlier["details"], earlier["run"]["minutes"] * 60, earlier), path)
 
 
 async def main():
@@ -358,7 +420,10 @@ async def main():
     parser.add_argument("--decoy", type=int, default=40)
     parser.add_argument("--drill", type=int, default=45)
     parser.add_argument("--concurrency", type=int, default=5)
+    parser.add_argument("--rescore", type=Path, help="score a finished run again from its report, without model calls")
     args = parser.parse_args()
+    if args.rescore:
+        return rescore(args.rescore)
     if not llm.enabled():
         sys.exit("No ANTHROPIC_API_KEY in server/.env: self-play needs the real models.")
 
@@ -383,15 +448,7 @@ async def main():
 
     report = build_report(results, time.time() - started)
     name = f"eval_{datetime.date.today():%Y%m%d}.json"
-    (ROOT.parent / "reports").mkdir(exist_ok=True)
-    (ROOT.parent / "reports" / name).write_text(json.dumps(report, indent=1, ensure_ascii=False), encoding="utf-8")
-    public = {k: report[k] for k in ("date", "metrics", "run", "not_measured", "outcomes_by_disposition",
-                                     "caught_by_checks", "simulator_stepped_out_of_role",
-                                     "trainees_who_stopped_replying", "scammers_who_hung_up")}
-    (ROOT / "app" / "eval_latest.json").write_text(json.dumps(public, indent=1, ensure_ascii=False), encoding="utf-8")
-    print()
-    for m in report["metrics"]:
-        print(f"  {'PASS' if m['pass'] else 'FAIL'}  {m['name']:34} {m['value']}   (target: {m['target']})")
+    write_reports(report, ROOT.parent / "reports" / name)
     print(f"\n  {report['run']['minutes']} minutes, about ${report['run']['estimated_cost_usd']} "
           f"(system ${report['run']['system_cost_usd']}, simulators ${report['run']['simulator_cost_usd']})")
     print(f"  full report: reports/{name}")

@@ -692,6 +692,13 @@
       });
 
       window.addEventListener('pagehide', function () {
+        /* Leaving mid-drill closes it on the server, so no drill is left open. */
+        if (chat.live && chat.id != null) {
+          try {
+            fetch(API_BASE + sessionPath(chat.id, '/kill'),
+              { method: 'POST', headers: requestHeaders(), body: '{}', keepalive: true });
+          } catch (e) { /* the server's idle check closes it instead */ }
+        }
         chat.closeStream();
         if (window.kameenVoice) window.kameenVoice.endCall();
       });

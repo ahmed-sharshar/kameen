@@ -60,7 +60,11 @@ The tests run the real routes against a throwaway SQLite file and the scripted m
 
 ## Approving a scenario card
 
-Cards in `server/app/cards/scenarios/` ship with `"approved_by": null`. Read a card, then put your name in that field to allow drills with it.
+A drill runs only from a card whose `approved_by` field names the person who read and approved it. The three cards in `server/app/cards/scenarios/` are approved in English and in Arabic; each language is approved on its own, under `translations`. A new card, or a new translation, starts with `"approved_by": null` and is refused until someone puts their name there.
+
+## Sessions that go quiet
+
+Once a minute the server closes sessions nobody is in any more: a drill after 15 minutes without a message, a decoy session after two hours. A drill closed this way still gets the reveal and the lesson on its record, with the outcome `stopped`. Leaving the drill page does the same at once.
 
 ## Deploying
 

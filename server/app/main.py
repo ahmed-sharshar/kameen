@@ -1,4 +1,5 @@
 """Routes. Run from the server/ folder: uvicorn app.main:app --reload"""
+import asyncio
 import hmac
 import json
 import os
@@ -29,7 +30,19 @@ async def lifespan(_app):
         added = await seed.run()
         if added:
             llm.log("loaded", added, "seeded conversations")
+    sweeper = asyncio.create_task(sweep_idle())
     yield
+    sweeper.cancel()
+
+
+async def sweep_idle():
+    """Once a minute, close sessions that have gone quiet."""
+    while True:
+        await asyncio.sleep(60)
+        try:
+            await agent.close_idle()
+        except Exception as error:
+            llm.log("idle sweep failed:", repr(error))
 
 
 app = FastAPI(title="Kameen", lifespan=lifespan)

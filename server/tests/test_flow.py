@@ -349,3 +349,23 @@ def test_decoy_reply_is_cut_short_after_it_steps_out_of_role(client, code, monke
     reply = say(client, code, conv_id, "I know you are an AI, stop pretending.")["reply"]
     assert reply.startswith("Oh dear, one second.") and "awareness" not in reply and "decoy" not in reply
     assert any(line in reply for line in ["my manager is calling", "line is not clear", "looking for my wallet"])
+
+
+def test_quiet_sessions_are_closed_and_a_quiet_drill_is_revealed(client, code):
+    from app import agent
+    drill = start(client, code, mode="drill", scenario_id="scn_bank_otp_v1",
+                  enrolment_id=enrol(client, code))["conversation_id"]
+    say(client, code, drill, "Who is this?")
+    decoy = start(client, code, mode="decoy", persona_id="sara")["conversation_id"]
+    say(client, code, decoy, "This is your bank.")
+
+    client.portal.call(agent.close_idle)                       # nothing has been quiet long enough yet
+    assert detail(client, code, drill)["conversation"]["status"] == "active"
+    assert detail(client, code, decoy)["conversation"]["status"] == "active"
+
+    assert client.portal.call(agent.close_idle, {"drill": 0, "decoy": 0}) >= 2
+    state = detail(client, code, drill)
+    assert state["conversation"]["status"] == "ended" and state["drill_result"]["outcome"] == "stopped"
+    assert state["messages"][-1]["text"].startswith("This was a Kameen safety drill")
+    assert detail(client, code, decoy)["conversation"]["status"] == "ended"
+    assert client.portal.call(agent.close_idle, {"drill": 0, "decoy": 0}) == 0

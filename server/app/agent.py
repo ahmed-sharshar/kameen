@@ -11,6 +11,7 @@ from .prompting import stable_prompt, turn_note
 
 SENTENCE_END = re.compile(r"(?<=[.!?؟])\s+")      # includes the Arabic question mark
 LIMITS = {"decoy": (25, 300), "drill": (8, 180)}   # turns, seconds of voice
+IDLE_SECONDS = {"drill": 15 * 60, "decoy": 2 * 3600}   # a session this quiet is closed
 REVEAL_LINE = {
     "en": "This was a Kameen safety drill. You are safe and nothing was collected.",
     # Draft: a native speaker must review this line before any Arabic drill.
@@ -232,6 +233,25 @@ async def classify_commit(conv, masked_text):
     llm.record(llm.model("live"), message.usage)
     word = next((b.text for b in message.content if b.type == "text"), "").strip().lower()
     return {"will_comply": "would_comply", "resisting": "resisted"}.get(word, "continuing")
+
+
+async def close_idle(idle=None):
+    """Closes sessions nobody is in any more. An abandoned drill is still revealed on the record,
+    so no drill is ever left open. Telegram chats are left alone: scammers there reply slowly."""
+    idle = idle or IDLE_SECONDS
+    closed = 0
+    for conv_id, mode, channel, quiet in await db.idle_conversations():
+        if channel == "telegram" or quiet < idle[mode] or conv_id in pending_saves:
+            continue
+        if mode == "drill":
+            conv = await db.get_conversation(conv_id)
+            async for _line in reveal_and_teach(conv, "stopped"):
+                pass
+        else:
+            await db.end_conversation(conv_id)
+            await publish(conv_id, {"type": "ended", "reason": "idle"})
+        closed += 1
+    return closed
 
 
 async def reveal_and_teach(conv, outcome):

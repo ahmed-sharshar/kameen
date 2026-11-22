@@ -222,6 +222,20 @@ async def end_conversation(conv_id, status="ended"):
     await _patch(conv_id, status=status, ended_at=time.time())
 
 
+async def idle_conversations():
+    """Every open conversation with how long it has been quiet: (id, mode, channel, seconds)."""
+    now = time.time()
+    async with Session() as s:
+        rows = (await s.execute(
+            select(Conversation.id, Conversation.mode, Conversation.channel, Conversation.started_at,
+                   func.max(Message.created_at))
+            .outerjoin(Message, Message.conversation_id == Conversation.id)
+            .where(Conversation.status == "active")
+            .group_by(Conversation.id, Conversation.mode, Conversation.channel, Conversation.started_at))).all()
+    return [(conv_id, mode, channel, now - max(started, latest or 0))
+            for conv_id, mode, channel, started, latest in rows]
+
+
 async def set_rating(conv_id, text):
     await _patch(conv_id, rating=text[:500])
 
