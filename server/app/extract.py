@@ -71,6 +71,10 @@ def find_patterns(text):
 
     for match in IBAN.finditer(text):
         value = re.sub(r"[ -]", "", match.group()).upper()
+        if not canaries.iban_ok(value):
+            # "...456 5 minutes": the pattern may have run on into the next number. Try shorter.
+            shorter = next((value[:n] for n in range(len(value) - 1, 14, -1) if canaries.iban_ok(value[:n])), None)
+            value = shorter or value
         if not 15 <= len(value) <= 34:
             continue
         found.append({"type": "iban", "value": value, "quote": _around(text, *match.span()),

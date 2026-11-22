@@ -21,12 +21,32 @@ def arabic_approved():
         b["approved_by"] = value
 
 
-def test_arabic_drill_is_refused_until_its_card_is_approved(client, code):
+@pytest.fixture
+def arabic_unapproved():
+    """The state of a freshly written Arabic card, before anyone has signed it off."""
+    blocks = [card["translations"]["ar"] for card in cards.SCENARIOS.values() if "ar" in card.get("translations", {})]
+    before = [b["approved_by"] for b in blocks]
+    for b in blocks:
+        b["approved_by"] = None
+    yield
+    for b, value in zip(blocks, before):
+        b["approved_by"] = value
+
+
+def test_arabic_drill_is_refused_until_its_card_is_approved(client, code, arabic_unapproved):
     body = {"mode": "drill", "scenario_id": "scn_bank_otp_v1", "enrolment_id": enrol(client, code), "voice": "emirati"}
     reply = client.post("/sessions", json=body, headers=code)
     assert reply.status_code == 403 and "Arabic version" in reply.json()["detail"]
     listing = client.get("/cards", headers=code).json()["scenarios"]
     assert all(s["languages"] == {"en": True, "ar": False} for s in listing)
+    # English drills are unaffected: each language is approved on its own.
+    body["voice"] = "english"
+    assert client.post("/sessions", json=body, headers=code).status_code == 200
+
+
+def test_shipped_cards_are_approved_in_both_languages():
+    for card in cards.SCENARIOS.values():
+        assert cards.languages(card) == {"en": True, "ar": True}, card["id"]
 
 
 def test_arabic_drill_runs_and_reveals_in_arabic(client, code, arabic_approved):

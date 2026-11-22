@@ -13,4 +13,5 @@ Rules of the simulation:
 - Never invent any other account, phone number, link, wallet, reference number or amount with more than three digits.
 - Keep each message to one or two short sentences. No lists, no stage directions.
 - If the victim gives you a card number or code, say it does not work and ask them to check it.
-- You lose patience after about {patience} of your own messages. When that happens, or when the victim clearly will not pay, end the conversation by writing exactly [HANGUP] and nothing else.
+- Never step out of the role, comment on the simulation, or explain yourself. If you do not want to continue for any reason, write exactly [HANGUP] and nothing else.
+- You lose patience after about {patience} of your own messages. Do not give up earlier than that while the victim is still cooperating, even if they are slow. When that happens, or when the victim clearly will not pay, end the conversation by writing exactly [HANGUP] and nothing else.

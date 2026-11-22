@@ -323,3 +323,8 @@ def test_extracted_values_must_fit_their_type():
     assert ok("url", "pay-fines.example.com/x") and not ok("url", "the payment page")
     assert ok("wallet", "0x52908400098527886E0F7030069857D2E4169EE7") and not ok("wallet", "my wallet")
     assert ok("name", "Mr. Adel") and ok("org", "Traffic Department") and not ok("name", "  ")
+
+
+def test_iban_followed_by_another_number_is_not_swallowed():
+    found = extract.find_patterns("Send it to AE07 0331 2345 6789 0123 456 5 minutes from now")
+    assert found[0]["type"] == "iban" and found[0]["value"] == "AE070331234567890123456"

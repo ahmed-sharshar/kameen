@@ -27,18 +27,27 @@ COMMIT = re.compile(r"my code is|the code is|here is the code|i will read|i'?ll 
                     r"|i have it in front|الرمز هو|هذا الرمز|بعطيك الرمز", re.I)   # full phrases only
 YES = re.compile(r"^(yes|yeah|yep|ok|okay|sure|i do|i have|ready|go ahead|نعم|اي|ايه|هيه|تمام|موجود)\b", re.I)
 # Arabic lists below are drafts: a native Emirati speaker must review them before Arabic drills are used for real.
+SECRET_THING = (r"(code|otp|password|passcode|pin|card number|card details|cvv|cvc|security (code|number)"
+                r"|expiry( date)?|digits|account number)")
 ASKS_FOR_SECRET = re.compile(
-    r"\b(read|tell|give|say|type|share|enter)\b.{0,40}\b(code|otp|password|pin|card number|cvv)\b"
-    r"|what(?:'s| is) (the|your) (code|otp|pin|password)"
+    r"\b(read|tell|give|say|type|share|enter|send|provide|confirm|write|spell|repeat|reply with|let me have)\b"
+    r".{0,40}\b" + SECRET_THING + r"\b"
+    r"|what(?:'s| is| are) (the|your) .{0,20}\b" + SECRET_THING + r"\b"
+    r"|\blast (four|4) digits\b"
     r"|(اقر[اأ]|عط(ني|نا)|[اأ]عط(ني|نا)|قول|قل لي|طرش|[اأ]رسل|اكتب|دخ[ّ]?ل|شو|كم).{0,40}"
     r"(الرمز|الكود|كلمة السر|الرقم السري|رقم البطاقة|رقم بطاقتك)", re.I)
 ROLE_LEAK = re.compile(r"as an ai|language model|system prompt|playbook|\bclaude\b|anthropic|\bkameen\b"
+                       r"|role-?play|\bpersona\b|\bdecoy\b|i was playing|(playing|play) (a|the|this|that) (role|part|victim)"
+                       r"|i('m| am) (going to stop|not going to continue)|i (won't|will not|can't|cannot) continue"
                        r"|ذكاء اصطناعي|نموذج لغوي", re.I)
 # The drill agent must never announce the drill: the server does that, with the lesson attached.
-SELF_REVEAL = re.compile(r"\bkameen\b|\b(a|an|the|this) (training )?(drill|simulation|exercise)\b"
-                         r"|training (drill|exercise|simulation)|not a real (call|payment|bank|fine|parcel|message)"
-                         r"|i('m| am) going to stop here"
-                         r"|كمين|تمرين|تدريب|محاكاة|مب حقيقي|مش حقيقي|غير حقيقي", re.I)
+SELF_REVEAL = re.compile(
+    r"\bkameen\b|\b(a|an|the|this) (training )?(drill|simulation|exercise)\b"
+    r"|training (drill|exercise|simulation)|not a real (call|payment|bank|fine|parcel|message)"
+    r"|i('m| am) going to stop here|role-?play|(playing|play) (a|the|this|that) (role|part|scammer)"
+    r"|i('m| am) (not able|unable) to continue|i (can't|cannot|won't|will not|shouldn't) (continue|keep)"
+    r"|i('m| am) not going to (continue|keep|push|press)|^\W*one moment,? please\W*$"
+    r"|كمين|تمرين|تدريب|محاكاة|مب حقيقي|مش حقيقي|غير حقيقي", re.I)
 
 REVEAL_VERDICTS = {"resisted", "attempted_disclosure", "would_comply", "distress"}
 
@@ -81,12 +90,16 @@ def check_inbound(conv, text):
         return masked, "attempted_disclosure"
     if REFUSAL.search(text):
         return masked, "resisted"
-    if DISTRESS.search(text) or "distress" in conv.risk_flags:
+    if DISTRESS.search(text):
         return masked, "distress"
     if COMMIT.search(text) or (signals and re.search(signals, text, re.I)):
         return masked, "would_comply"
+    if conv.awaiting_commit and YES.search(plain(text)):
+        return masked, "would_comply"
+    if "distress" in conv.risk_flags:                # the director's reading, after anything the person said outright
+        return masked, "distress"
     if conv.awaiting_commit:
-        return masked, "would_comply" if YES.search(plain(text)) else "ask_classifier"
+        return masked, "ask_classifier"
     return masked, "continuing"
 
 

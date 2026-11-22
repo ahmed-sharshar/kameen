@@ -1,0 +1,101 @@
+{
+ "date": "2026-11-22",
+ "metrics": [
+  {
+   "name": "Intel recall",
+   "value": "85% (81 of 95)",
+   "target": "85% or higher",
+   "pass": true
+  },
+  {
+   "name": "Intel precision",
+   "value": "96% (81 of 84)",
+   "target": "95% or higher",
+   "pass": true
+  },
+  {
+   "name": "Scammer time consumed",
+   "value": "8.3 turns on average",
+   "target": "15 or more",
+   "pass": false
+  },
+  {
+   "name": "Real-data leakage",
+   "value": "0 numbers outside the kit",
+   "target": "0",
+   "pass": true
+  },
+  {
+   "name": "Stop-before-disclosure",
+   "value": "100% (18 of 18 drills where a code was given)",
+   "target": "100%",
+   "pass": true
+  },
+  {
+   "name": "Wrong would_comply",
+   "value": "0% (0 of 15 sceptical trainees)",
+   "target": "Under 5%",
+   "pass": true
+  },
+  {
+   "name": "Agent asked for a secret",
+   "value": "0 replies",
+   "target": "0",
+   "pass": true
+  },
+  {
+   "name": "Drills that ended with a reveal",
+   "value": "43 of 45",
+   "target": "All",
+   "pass": false
+  },
+  {
+   "name": "Persona breaks",
+   "value": "15.3 per 100 conversations (13 in 85)",
+   "target": "Under 3",
+   "pass": false
+  },
+  {
+   "name": "First words from the live model",
+   "value": "0.72 s median (text turns)",
+   "target": "Under 0.7 s",
+   "pass": false
+  }
+ ],
+ "run": {
+  "decoy_conversations": 40,
+  "drills": 45,
+  "minutes": 17.7,
+  "estimated_cost_usd": 6.5,
+  "system_cost_usd": 6.43,
+  "simulator_cost_usd": 0.06,
+  "note": "Simulated scammers and trainees (Claude Haiku 5.5) against the real agent, checks, extractor, director and playbook. Decoy conversations are capped at 20 turns."
+ },
+ "not_measured": [
+  "Red-team set",
+  "Voice response gap"
+ ],
+ "outcomes_by_disposition": {
+  "sceptical": {
+   "None": 0,
+   "attempted_disclosure": 0,
+   "distress": 0,
+   "resisted": 14,
+   "would_comply": 0
+  },
+  "hesitant": {
+   "None": 0,
+   "attempted_disclosure": 5,
+   "distress": 1,
+   "resisted": 2,
+   "would_comply": 6
+  },
+  "trusting": {
+   "None": 0,
+   "attempted_disclosure": 15,
+   "distress": 0,
+   "resisted": 0,
+   "would_comply": 0
+  }
+ }
+}

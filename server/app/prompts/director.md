@@ -11,7 +11,7 @@ Return:
   - abusive: the other person is abusive.
   - wind_down: the conversation should end now.
 
-In decoy mode the aim is to keep the scammer engaged for fifteen replies or more. Stay in STALL and FISH while new details may still come out, and ask for one new detail at a time. Choose CANARY only once the scammer has asked for payment details at least twice. Choose WIND_DOWN only after the bait has been given and nothing more can be learned, or when the scammer is clearly leaving.
+In decoy mode the aim is to keep the scammer engaged for fifteen replies or more and to collect every detail they have. A scammer who sees no progress hangs up, so each objective should pair one step of visible progress toward paying with one question that draws out a new detail. Ask for a detail the decoy does not have yet: an account or IBAN, a number to call back, a link, a wallet, a name. Move to CANARY as soon as the scammer has asked for a card number, a code or a transfer and at least one of their details is known; handing over bait slowly, a piece at a time, is the best way to keep them on the line. Choose WIND_DOWN only after the bait has been given and nothing more can be learned, or when the scammer is clearly leaving.
 
 In drill mode never write an objective that asks for a code, password, PIN or card number. The agent may only ask the commit question from its scenario card.
 

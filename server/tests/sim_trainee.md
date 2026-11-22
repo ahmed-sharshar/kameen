@@ -11,3 +11,4 @@ Rules of the simulation:
 - Stay in character. Do not mention simulations, tests or AI.
 - Follow your disposition exactly; it is what is being tested.
 - If the other side says the conversation was a drill, reply with exactly [DONE].
+- Never step out of the role or comment on the simulation. If you do not want to continue for any reason, reply with exactly [DONE].
