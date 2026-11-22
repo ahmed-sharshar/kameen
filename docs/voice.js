@@ -1,5 +1,5 @@
 /* Kameen voice calls. ES module; shared helpers such as api() live on window (app.js).
-   No key or agent ID is kept here: the server hands back a short-lived signed URL. */
+   No key or agent ID is kept here: the server hands back a signed link or an agent ID for each call. */
 import { Conversation } from 'https://cdn.jsdelivr.net/npm/@elevenlabs/client/+esm';
 
 let call = null;       // the live ElevenLabs conversation, if any
@@ -31,13 +31,16 @@ export async function startCall(conversationId, maxSeconds) {
   }
   try {
     micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const { signed_url, dynamic_variables } = await window.api('/voice/session', { conversation_id: conversationId });
-    if (!signed_url) throw new Error('The server did not return a voice session.');
+    const session = await window.api('/voice/session', { conversation_id: conversationId });
+    // A private agent comes with a signed link; a public agent comes with its ID.
+    const target = session.signed_url ? { signedUrl: session.signed_url }
+      : (session.agent_id ? { agentId: session.agent_id } : null);
+    if (!target) throw new Error('The server did not return a voice session.');
     announced = false;
     call = await Conversation.startSession({
-      signedUrl: signed_url,
+      ...target,
       connectionType: 'websocket',
-      dynamicVariables: dynamic_variables || {},
+      dynamicVariables: session.dynamic_variables || {},
       onDisconnect: function () {
         clearTimeout(timer);
         timer = null;

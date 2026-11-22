@@ -156,10 +156,16 @@ def test_voice_endpoint_speaks_openai_format(client, code):
     body = {"messages": [{"role": "system", "content": f"kameen_conversation_id={conv_id}"},
                          {"role": "assistant", "content": "Hello? Yes, Rajesh speaking."},
                          {"role": "user", "content": "This is the bank security team."}], "stream": True}
+    # Before the site opens the call, nothing gets in, not even with the shared secret.
     assert client.post("/v1/chat/completions", json=body).status_code == 401
-    wrong = client.post("/v1/chat/completions", json=body, headers={"Authorization": "Bearer nope"})
-    assert wrong.status_code == 401
-    reply = client.post("/chat/completions", json=body, headers={"Authorization": "Bearer test-secret"})
+    early = client.post("/v1/chat/completions", json=body, headers={"Authorization": "Bearer test-secret"})
+    assert early.status_code == 401
+    opened = client.post("/voice/session", json={"conversation_id": conv_id}, headers=code).json()
+    assert opened["agent_id"] == "agent_for_tests" and "signed_url" not in opened
+    assert opened["dynamic_variables"] == {"kameen_conversation_id": conv_id,
+                                           "opening_line": "Hello? Yes, Rajesh speaking."}
+    # Once it is open, the live session is what authorises the request; no secret is needed.
+    reply = client.post("/chat/completions", json=body)
     assert reply.status_code == 200 and reply.headers["content-type"].startswith("text/event-stream")
     lines = [line for line in reply.text.splitlines() if line.startswith("data: ")]
     assert lines[-1] == "data: [DONE]"
@@ -173,6 +179,26 @@ def test_voice_endpoint_speaks_openai_format(client, code):
                        headers={"Authorization": "Bearer test-secret"}).status_code == 200
     messages = detail(client, code, conv_id)["messages"]
     assert [m["speaker"] for m in messages[:2]] == ["marker", "agent"]
+    # An unknown ID and an ended session are both refused.
+    unknown = {"messages": [{"role": "system", "content": "kameen_conversation_id=00000000-0000-0000-0000-000000000000"},
+                            {"role": "user", "content": "hello"}]}
+    assert client.post("/v1/chat/completions", json=unknown).status_code == 401
+    assert client.post("/v1/chat/completions", json={"messages": []}).status_code == 401
+    client.post(f"/sessions/{conv_id}/kill", headers=code)
+    assert client.post("/v1/chat/completions", json=body).status_code == 401
+
+
+def test_strict_mode_demands_the_secret_as_well(client, code, monkeypatch):
+    conv_id = start(client, code, mode="decoy", persona_id="rajesh", channel="voice")["conversation_id"]
+    client.post("/voice/session", json={"conversation_id": conv_id}, headers=code)
+    body = {"messages": [{"role": "system", "content": f"kameen_conversation_id={conv_id}"},
+                         {"role": "user", "content": "Hello?"}]}
+    monkeypatch.setenv("VOICE_REQUIRE_SECRET", "1")
+    assert client.post("/v1/chat/completions", json=body).status_code == 401
+    assert client.post("/v1/chat/completions", json=body,
+                       headers={"Authorization": "Bearer nope"}).status_code == 401
+    assert client.post("/v1/chat/completions", json=body,
+                       headers={"Authorization": "Bearer test-secret"}).status_code == 200
 
 
 def test_voice_session_reports_missing_configuration(client, code):

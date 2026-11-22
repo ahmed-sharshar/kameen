@@ -17,6 +17,7 @@ from .events import publish, subscribe
 ACCESS_CODE = os.environ["ACCESS_CODE"]                 # the server refuses to start without one
 ORIGINS = [o.strip() for o in os.environ.get("FRONTEND_ORIGIN", "http://localhost:5500").split(",") if o.strip()]
 SESSIONS_PER_HOUR = 30
+VOICE_WINDOW_SECONDS = 20 * 60
 recent_starts = {}
 
 
@@ -216,19 +217,32 @@ def find_conversation_id(body):
 @app.post("/v1/chat/completions")
 @app.post("/chat/completions")
 async def completions(request: Request, authorization: str = Header(None)):
+    body = await request.json()
+    try:
+        conv_id = find_conversation_id(body)
+    except HTTPException:
+        conv_id = None
+    conv = await db.get_conversation(conv_id) if conv_id else None
+
+    # Who may call this endpoint (decided by the project owner on 2026-11-22):
+    # the request must name a voice session that /voice/session opened in the last 20 minutes.
+    # That ID is random, short-lived and only handed out behind the access code.
+    # The shared secret is still checked when the agent sends it, and VOICE_REQUIRE_SECRET=1
+    # makes it mandatory again.
     secret = os.environ.get("LLM_SHARED_SECRET", "").strip()
     scheme, _, token = (authorization or "").partition(" ")
-    token = token.strip()                      # a pasted secret often carries a stray newline
-    if not secret or scheme.lower() != "bearer" or not hmac.compare_digest(token, secret):
-        # Shapes only, never values: enough to tell a wrong secret from a wrong header.
-        llm.log("voice request refused on", request.url.path, "| scheme:", scheme or "(none)",
-                "| token length:", len(token), "| expected length:", len(secret))
-        raise HTTPException(401)
-    body = await request.json()
-    llm.log("voice request on", request.url.path, "| body keys:", sorted(body.keys()),
+    has_secret = bool(secret) and scheme.lower() == "bearer" and hmac.compare_digest(token.strip(), secret)
+    live_voice = (conv is not None and conv.status == "active" and conv.voice_started_at is not None
+                  and time.time() - conv.voice_started_at < VOICE_WINDOW_SECONDS)
+    strict = os.environ.get("VOICE_REQUIRE_SECRET") == "1"
+    allowed = live_voice and (has_secret or not strict)
+    # Shapes only, never values.
+    llm.log("voice request on", request.url.path, "| allowed:", allowed, "| live voice session:", live_voice,
+            "| secret ok:", has_secret, "| body keys:", sorted(body.keys()),
             "| roles:", [m.get("role") for m in body.get("messages", [])],
             "| extra body:", sorted((body.get("elevenlabs_extra_body") or {}).keys()))
-    conv_id = find_conversation_id(body)
+    if not allowed:
+        raise HTTPException(401)
     user_text = next((str(m.get("content", "")) for m in reversed(body.get("messages", []))
                       if m.get("role") == "user"), "")
 
