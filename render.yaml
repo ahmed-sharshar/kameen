@@ -58,3 +58,5 @@ services:
         value: "5"
       - key: CANARY_BANK_CODE
         value: "999"
+      - key: SEED_DEMO                # "1" loads the synthetic demo history once at start-up
+        value: "1"

@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-from . import agent, campaigns, cards, db, evidence, llm, sessions, telegram, voice
+from . import agent, campaigns, cards, db, evidence, llm, seed, sessions, telegram, voice
 from .director import make_playbook
 from .events import publish, subscribe
 
@@ -24,6 +24,10 @@ recent_starts = {}
 @asynccontextmanager
 async def lifespan(_app):
     await db.init()
+    if os.environ.get("SEED_DEMO") == "1":            # synthetic history for the demo dashboard
+        added = await seed.run()
+        if added:
+            llm.log("loaded", added, "seeded conversations")
     yield
 
 

@@ -54,6 +54,10 @@ The tests run the real routes against a throwaway SQLite file and the scripted m
 - The decoy may only say numbers from its synthetic kit or numbers the scammer said first.
 - Scenario cards run only after a person sets `approved_by` on the card.
 
+## Demo history
+
+`server/scripts/seed.py` loads 25 synthetic past conversations in three linked campaigns, plus 43 drill results, so the dashboard has something to show. Everything in it is invented: IBANs use the synthetic bank code, phone numbers use the 059 prefix, and links sit under the reserved example domains. Run it with `--clear` to remove it, or `--cue` to print the IBAN and phone for the demo cue card. On the server, `SEED_DEMO=1` loads it once at start-up.
+
 ## Approving a scenario card
 
 Cards in `server/app/cards/scenarios/` ship with `"approved_by": null`. Read a card, then put your name in that field to allow drills with it.
