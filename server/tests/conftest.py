@@ -11,8 +11,9 @@ os.environ["ADMIN_CODE"] = "test-admin"
 os.environ["LLM_SHARED_SECRET"] = "test-secret"
 os.environ["DRILL_COOLDOWN_HOURS"] = "0"
 os.environ["FRONTEND_ORIGIN"] = "http://localhost:5500"
-os.environ["ELEVENLABS_AGENT_EN_IN"] = "agent_for_tests"      # Rajesh's voice; the English one stays unset
-os.environ["ELEVENLABS_AGENT_EN"] = "unset"
+os.environ["ELEVENLABS_AGENT_EN_IN"] = "agent_for_tests"      # Rajesh's voice
+os.environ["ELEVENLABS_AGENT_EN"] = "agent_en_for_tests"      # Sara's voice and English drills
+os.environ["ELEVENLABS_AGENT_AR"] = "unset"                   # the Arabic agent stays unconfigured
 os.environ["ELEVENLABS_API_KEY"] = "unset"
 os.environ.pop("VOICE_REQUIRE_SECRET", None)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))

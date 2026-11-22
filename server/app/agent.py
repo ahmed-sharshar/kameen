@@ -16,6 +16,7 @@ REVEAL_LINE = {
     # Draft: a native speaker must review this line before any Arabic drill.
     "ar": "هذا كان تمرين توعوي من كمين. أنت بأمان، وما تم جمع أي معلومات.",
 }
+DRILL_OVER_LINE = "The drill has ended. You can hang up now."
 background = set()
 pending_saves = {}
 
@@ -74,7 +75,7 @@ async def agent_turn_stream(conv_id, incoming_text):
 
     # 1. Inbound checks: mask secrets, detect the commit point.
     masked, verdict = guards.check_inbound(conv, incoming_text)
-    await db.add_message(conv_id, "counterpart", masked)
+    counterpart_id = await db.add_message(conv_id, "counterpart", masked)
     await publish(conv_id, {"type": "message", "speaker": "counterpart", "text": masked})
     if verdict == "ask_classifier":
         verdict = await classify_commit(conv, masked)
@@ -90,7 +91,7 @@ async def agent_turn_stream(conv_id, incoming_text):
         return
     if conv.mode == "decoy" and over:
         line = conv.persona["goodbye_line"]
-        pending_saves[conv_id] = run_later(finish_turn(conv, line, close=True))
+        pending_saves[conv_id] = run_later(finish_turn(conv, line, close=True, counterpart_id=counterpart_id))
         yield line
         return
 
@@ -125,11 +126,43 @@ async def agent_turn_stream(conv_id, incoming_text):
         # No await here: the save runs as its own task.
         if spoken:
             close = conv.mode == "decoy" and conv.stage == "WIND_DOWN"
-            pending_saves[conv_id] = run_later(finish_turn(conv, " ".join(spoken), close=close))
+            pending_saves[conv_id] = run_later(
+                finish_turn(conv, " ".join(spoken), close=close, counterpart_id=counterpart_id))
 
 
-async def finish_turn(conv, reply, close=False):
+async def voice_turn_stream(conv_id, incoming_text, caller_turns):
+    """One voice turn. `caller_turns` is how many caller messages ElevenLabs has in its history.
+
+    ElevenLabs sends a turn again when the caller keeps talking: same number of caller
+    messages, newer text, and the reply we gave the first time was never spoken. So a
+    re-sent turn replaces the earlier one instead of adding a second.
+    """
+    await wait_saved(conv_id)
+    conv = await db.get_conversation(conv_id)
+    if conv is None or conv.voice_started_at is None:
+        return
+    handled = await db.count_counterpart_since(conv_id, conv.voice_started_at)
+    resent = caller_turns <= handled
+
+    if conv.status != "active":
+        if conv.mode == "drill" and conv.status == "ended":
+            # A drill must never end in silence. If the reveal was given for a turn that
+            # ElevenLabs then re-sent, it was not heard: say it again.
+            yield (await db.last_agent_message(conv_id)) if resent else DRILL_OVER_LINE
+        return
+
+    if resent:
+        removed = await db.drop_last_turn(conv_id)
+        if removed:
+            await publish(conv_id, {"type": "retract", "count": removed})
+    async for sentence in agent_turn_stream(conv_id, incoming_text):
+        yield sentence
+
+
+async def finish_turn(conv, reply, close=False, counterpart_id=None):
     try:
+        if counterpart_id is not None and not await db.message_exists(counterpart_id):
+            return                                 # the turn was replaced; this reply was never heard
         await db.add_message(conv.id, "agent", reply)
         await db.save_turn(conv, close=close)      # turn_count + 1, awaiting_commit, scammer digits
         await publish(conv.id, {"type": "message", "speaker": "agent", "text": reply})

@@ -201,8 +201,72 @@ def test_strict_mode_demands_the_secret_as_well(client, code, monkeypatch):
                        headers={"Authorization": "Bearer test-secret"}).status_code == 200
 
 
+def spoken(reply):
+    """The text a voice response would be turned into speech."""
+    chunks = [json.loads(line[6:]) for line in reply.text.splitlines()
+              if line.startswith("data: ") and line != "data: [DONE]"]
+    return "".join(c["choices"][0]["delta"].get("content", "") for c in chunks).strip()
+
+
+def settled(client, code, conv_id, turns):
+    """Voice replies are saved just after the response ends. Wait until `turns` turns are stored."""
+    for _ in range(60):
+        state = detail(client, code, conv_id)
+        if state["conversation"]["turn_count"] == turns:
+            return state
+        time.sleep(0.05)
+    return state
+
+
+def voice_body(conv_id, *caller_lines):
+    messages = [{"role": "system", "content": f"kameen_conversation_id={conv_id}"}]
+    for line in caller_lines:
+        messages += [{"role": "assistant", "content": "..."}, {"role": "user", "content": line}]
+    return {"messages": messages}
+
+
+def test_resent_voice_turn_replaces_the_earlier_one(client, code):
+    conv_id = start(client, code, mode="decoy", persona_id="rajesh", channel="voice")["conversation_id"]
+    client.post("/voice/session", json={"conversation_id": conv_id}, headers=code)
+    first = client.post("/v1/chat/completions", json=voice_body(conv_id, "This is the bank."))
+    assert first.status_code == 200 and spoken(first)
+    # The caller kept talking: same number of caller messages, fuller text.
+    again = client.post("/v1/chat/completions",
+                        json=voice_body(conv_id, "This is the bank security team, your account is frozen."))
+    assert again.status_code == 200 and spoken(again)
+    state = settled(client, code, conv_id, 1)
+    theirs = [m["text"] for m in state["messages"] if m["speaker"] == "counterpart"]
+    ours = [m["text"] for m in state["messages"] if m["speaker"] == "agent"]
+    assert theirs == ["This is the bank security team, your account is frozen."]
+    assert len(ours) == 2                                   # the opening line and one reply
+    assert state["conversation"]["turn_count"] == 1
+    # A genuinely new turn is added as usual.
+    client.post("/v1/chat/completions", json=voice_body(conv_id, "x", "Send the fee to my account."))
+    state = settled(client, code, conv_id, 2)
+    assert [m["speaker"] for m in state["messages"]].count("counterpart") == 2
+    assert state["conversation"]["turn_count"] == 2
+
+
+def test_unheard_drill_reveal_is_repeated_on_a_call(client, code):
+    conv_id = start(client, code, mode="drill", scenario_id="scn_bank_otp_v1",
+                    enrolment_id=enrol(client, code), channel="voice")["conversation_id"]
+    client.post("/voice/session", json={"conversation_id": conv_id}, headers=code)
+    first = client.post("/v1/chat/completions", json=voice_body(conv_id, "ok my code is 482913"))
+    assert spoken(first).startswith("This was a Kameen safety drill")
+    assert detail(client, code, conv_id)["drill_result"]["outcome"] == "attempted_disclosure"
+    # ElevenLabs sends the turn again, so the first reveal was never spoken: say it again.
+    again = client.post("/v1/chat/completions", json=voice_body(conv_id, "ok my code is 482913 hello?"))
+    assert again.status_code == 200 and spoken(again).startswith("This was a Kameen safety drill")
+    # Anything after the reveal gets a short closing line, and nothing more is stored.
+    later = client.post("/v1/chat/completions", json=voice_body(conv_id, "x", "are you still there?"))
+    assert spoken(later) == "The drill has ended. You can hang up now."
+    state = detail(client, code, conv_id)
+    assert [m["speaker"] for m in state["messages"]].count("counterpart") == 1
+    assert "482913" not in json.dumps(state)
+
+
 def test_voice_session_reports_missing_configuration(client, code):
-    conv_id = start(client, code, mode="decoy", persona_id="sara", channel="voice")["conversation_id"]
+    conv_id = start(client, code, mode="decoy", persona_id="abu_khalid", channel="voice")["conversation_id"]
     reply = client.post("/voice/session", json={"conversation_id": conv_id}, headers=code)
     assert reply.status_code == 503 and "not configured" in reply.json()["detail"]
 

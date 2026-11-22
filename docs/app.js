@@ -393,6 +393,7 @@ function createChat(cfg) {
   var opening = '';
   var openingPending = false;
   var closeTimer = null;
+  var rows = [];   /* bubbles rendered from live events, newest last */
 
   function names() {
     return (cfg.names && cfg.names()) || {};
@@ -417,10 +418,19 @@ function createChat(cfg) {
       if (ev.speaker === 'agent' && text.trim() === opening) return;
     }
     if (ev.speaker === 'agent') setTyping(cfg.listEl, false);
-    addBubble(cfg.listEl, ev.speaker, text, {
+    rows.push(addBubble(cfg.listEl, ev.speaker, text, {
       name: ev.speaker === 'agent' ? names().agent : names().counterpart,
       stick: ev.speaker === 'counterpart'
-    });
+    }));
+  }
+
+  /* On a call, the voice platform can send a turn again when the caller keeps talking. The server
+     then drops the earlier version and says how many messages went; remove the same bubbles. */
+  function retract(count) {
+    for (var i = 0; i < count && rows.length; i++) {
+      var row = rows.pop();
+      if (row && row.parentNode) row.parentNode.removeChild(row);
+    }
   }
 
   chat.reset = function () {
@@ -430,6 +440,7 @@ function createChat(cfg) {
     chat.sending = false;
     opening = '';
     openingPending = false;
+    rows = [];
     clearNode(cfg.listEl);
   };
 
@@ -449,6 +460,7 @@ function createChat(cfg) {
     var stream = watch(chat.id, function (ev) {
       if (chat.stream !== stream || !ev || typeof ev !== 'object') return;
       if (ev.type === 'message') renderMessage(ev);
+      else if (ev.type === 'retract') retract(Number(ev.count) || 0);
       else if (ev.type === 'ended') chat.end(ev.reason || '');
       if (cfg.onEvent) cfg.onEvent(ev);
     });

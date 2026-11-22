@@ -4,7 +4,7 @@ import time
 import uuid
 from types import SimpleNamespace
 
-from sqlalchemy import JSON, Boolean, Float, Integer, String, Text, func, select, update
+from sqlalchemy import JSON, Boolean, Float, Integer, String, Text, delete, func, select, update
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -240,9 +240,51 @@ async def list_conversations(limit=100):
 # ---- messages ------------------------------------------------------------
 
 async def add_message(conv_id, speaker, text):
+    row = Message(conversation_id=conv_id, speaker=speaker, text=text, created_at=time.time())
     async with Session() as s:
-        s.add(Message(conversation_id=conv_id, speaker=speaker, text=text, created_at=time.time()))
+        s.add(row)
         await s.commit()
+    return row.id
+
+
+async def message_exists(message_id):
+    async with Session() as s:
+        return (await s.execute(select(Message.id).where(Message.id == message_id))).first() is not None
+
+
+async def count_counterpart_since(conv_id, since):
+    """How many turns the other side has taken since the voice call opened."""
+    async with Session() as s:
+        return (await s.execute(select(func.count()).select_from(Message).where(
+            Message.conversation_id == conv_id, Message.speaker == "counterpart",
+            Message.created_at >= since))).scalar_one()
+
+
+async def last_agent_message(conv_id):
+    async with Session() as s:
+        row = (await s.execute(select(Message).where(
+            Message.conversation_id == conv_id, Message.speaker == "agent")
+            .order_by(Message.id.desc()))).scalars().first()
+    return row.text if row else ""
+
+
+async def drop_last_turn(conv_id):
+    """Removes the other side's last message and any reply to it. Returns how many messages went."""
+    async with Session() as s:
+        last = (await s.execute(select(Message).where(
+            Message.conversation_id == conv_id, Message.speaker == "counterpart")
+            .order_by(Message.id.desc()))).scalars().first()
+        if last is None:
+            return 0
+        doomed = (await s.execute(select(Message).where(
+            Message.conversation_id == conv_id, Message.id >= last.id))).scalars().all()
+        had_reply = any(m.speaker == "agent" for m in doomed)
+        await s.execute(delete(Message).where(Message.conversation_id == conv_id, Message.id >= last.id))
+        if had_reply:                                   # that reply had been counted as a turn
+            conv = await s.get(Conversation, conv_id)
+            conv.turn_count = max(0, conv.turn_count - 1)
+        await s.commit()
+    return len(doomed)
 
 
 async def get_messages(conv_id):

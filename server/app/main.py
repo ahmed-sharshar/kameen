@@ -232,8 +232,11 @@ async def completions(request: Request, authorization: str = Header(None)):
     secret = os.environ.get("LLM_SHARED_SECRET", "").strip()
     scheme, _, token = (authorization or "").partition(" ")
     has_secret = bool(secret) and scheme.lower() == "bearer" and hmac.compare_digest(token.strip(), secret)
-    live_voice = (conv is not None and conv.status == "active" and conv.voice_started_at is not None
-                  and time.time() - conv.voice_started_at < VOICE_WINDOW_SECONDS)
+    in_window = (conv is not None and conv.voice_started_at is not None
+                 and time.time() - conv.voice_started_at < VOICE_WINDOW_SECONDS)
+    # A drill that has just ended stays reachable, so its reveal can be repeated if it was not heard.
+    # A session an operator killed does not.
+    live_voice = in_window and (conv.status == "active" or (conv.mode == "drill" and conv.status == "ended"))
     strict = os.environ.get("VOICE_REQUIRE_SECRET") == "1"
     allowed = live_voice and (has_secret or not strict)
     # Shapes only, never values.
@@ -243,13 +246,13 @@ async def completions(request: Request, authorization: str = Header(None)):
             "| extra body:", sorted((body.get("elevenlabs_extra_body") or {}).keys()))
     if not allowed:
         raise HTTPException(401)
-    user_text = next((str(m.get("content", "")) for m in reversed(body.get("messages", []))
-                      if m.get("role") == "user"), "")
+    caller_messages = [str(m.get("content", "")) for m in body.get("messages", []) if m.get("role") == "user"]
+    user_text = caller_messages[-1] if caller_messages else ""
 
     async def stream():
         base = {"id": f"kameen-{conv_id}", "object": "chat.completion.chunk",
                 "created": int(time.time()), "model": "kameen"}
-        async for sentence in agent.agent_turn_stream(conv_id, user_text):
+        async for sentence in agent.voice_turn_stream(conv_id, user_text, len(caller_messages)):
             chunk = {**base, "choices": [{"index": 0, "delta": {"content": sentence + " "}, "finish_reason": None}]}
             yield f"data: {json.dumps(chunk)}\n\n"
         done = {**base, "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}
