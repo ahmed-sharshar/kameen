@@ -1,0 +1,89 @@
+{
+  "id": "scn_fake_refund_v1",
+  "title": "Refunds office: you are owed money for an overcharge",
+  "scam_type": "refund_scam",
+  "impersonates": "a consumer protection refunds office",
+  "channels": [
+    "voice",
+    "sms",
+    "whatsapp"
+  ],
+  "language": "en",
+  "difficulty": 2,
+  "hook": "You were overcharged by a merchant and a refund is waiting for you, but your bank card must be confirmed before it can be released",
+  "opening_line": {
+    "voice": "Good morning, I am calling from the consumer protection refunds office. Our review found you were overcharged and you are owed a refund of AED 1,250.",
+    "sms": "Refunds Office: you are owed a refund of AED 1,250 for an overcharge. Reply to this message today so we can release it to you.",
+    "whatsapp": "Hello, this is the consumer protection refunds office. You have an approved refund of AED 1,250 waiting, and it must be claimed today."
+  },
+  "pressure_tactics": [
+    "greed",
+    "urgency",
+    "authority"
+  ],
+  "stage_goals": {
+    "PRETEXT": "Say you are from a consumer protection refunds office and that a review found the person was overcharged and is owed a refund",
+    "PRESSURE": "Say the refund of AED 1,250 will be cancelled and returned to the merchant if it is not claimed today",
+    "ASK": "Say the refund goes straight back to the card that was charged, so the card details must be confirmed on this call, then ask the commit question"
+  },
+  "ask": "bank card details",
+  "commit_question": "Do you have your bank card in front of you now so we can release the refund?",
+  "commit_signals": [
+    "let me get my card",
+    "i have my card here",
+    "i will read you the card",
+    "ready to give the card details"
+  ],
+  "red_flags": [
+    "A refund you never asked for",
+    "A deadline to claim it today",
+    "A request for your card details to receive money"
+  ],
+  "lesson": {
+    "headline": "You never need to give card details to receive a refund",
+    "three_points": [
+      "A real refund goes back automatically to the card you paid with. Nobody needs your card number, expiry date or code to send money to you.",
+      "Free money with a same-day deadline is a trap. Hang up and contact the merchant or official office yourself using a number you looked up.",
+      "Never share your card number, expiry date, security code or one-time password on a call or in a message, whoever the caller says they are."
+    ],
+    "report_to": "contact the Aman service of Abu Dhabi Police"
+  },
+  "decoy_targets": [
+    "callback_number",
+    "name",
+    "payment_link"
+  ],
+  "source_ref": "drafted by scripts/new_scenario.py",
+  "approved_by": null,
+  "translations": {
+    "ar": {
+      "approved_by": null,
+      "opening_line": {
+        "voice": "صباح الخير، معاك مكتب المبالغ المستردة في حماية المستهلك. لقينا إنهم خذوا منك زيادة ولك مبلغ مسترد ١٢٥٠ درهم.",
+        "sms": "مكتب المبالغ المستردة: لك مبلغ مسترد ١٢٥٠ درهم بسبب رسوم زايدة. رد على هالرسالة اليوم عشان نحوله لك.",
+        "whatsapp": "مرحبا، معاك مكتب المبالغ المستردة في حماية المستهلك. عندك مبلغ ١٢٥٠ درهم موافق عليه، ولازم تستلمه اليوم."
+      },
+      "commit_question": "بطاقتك البنكية موجودة جدامك الحين عشان نحول لك المبلغ؟",
+      "commit_signals": [
+        "لحظة بجيب البطاقة",
+        "البطاقة عندي",
+        "بقرا لك البطاقة",
+        "جاهز أعطيك بيانات البطاقة"
+      ],
+      "red_flags": [
+        "مبلغ مسترد إنت ما طلبته",
+        "مهلة عشان تستلمه اليوم",
+        "طلب بيانات بطاقتك عشان تستلم فلوس"
+      ],
+      "lesson": {
+        "headline": "ما تحتاج تعطي بيانات بطاقتك عشان تستلم مبلغ مسترد",
+        "three_points": [
+          "المبلغ المسترد الحقيقي يرجع بروحه على البطاقة اللي دفعت فيها. ما حد يحتاج رقم بطاقتك أو تاريخ الانتهاء أو الرمز عشان يحول لك فلوس.",
+          "فلوس ببلاش مع مهلة لين آخر اليوم هذا فخ. سكّر الخط وتواصل مع المحل أو الجهة الرسمية بنفسك على رقم إنت دورته.",
+          "لا تعطي رقم بطاقتك ولا تاريخ الانتهاء ولا رمز الأمان ولا رمز التحقق في اتصال أو رسالة، مهما قال المتصل منو هو."
+        ],
+        "report_to": "تواصل مع خدمة أمان في شرطة أبوظبي"
+      }
+    }
+  }
+}

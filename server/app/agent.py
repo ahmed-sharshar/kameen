@@ -115,7 +115,7 @@ async def agent_turn_stream(conv_id, incoming_text):
                 parts = SENTENCE_END.split(buffer)
                 for sentence in parts[:-1]:
                     if guards.reveals_drill(conv, sentence):
-                        self_reveal = True
+                        self_reveal = sentence
                         break
                     caught = len(conv.guard_events)
                     safe = guards.check_outbound(conv, sentence)
@@ -134,7 +134,7 @@ async def agent_turn_stream(conv_id, incoming_text):
             llm.log("live model failed:", repr(error))
             buffer = ""
         if not self_reveal and buffer.strip() and guards.reveals_drill(conv, buffer.strip()):
-            self_reveal = True
+            self_reveal = buffer.strip()
         if self_reveal:
             # The model tried to end the drill itself. The server takes over: what was already
             # said is stored first, then the fixed reveal and lesson follow.
@@ -142,7 +142,8 @@ async def agent_turn_stream(conv_id, incoming_text):
             if said:
                 await db.add_message(conv_id, "agent", said)
                 await publish(conv_id, {"type": "message", "speaker": "agent", "text": said})
-            await publish(conv_id, {"type": "guard", "event": "self_reveal"})
+            # The sentence that was held back is kept for the operator: it is the model's, not the trainee's.
+            await publish(conv_id, {"type": "guard", "event": "self_reveal", "held_back": self_reveal[:300]})
             async for sentence in reveal_and_teach(conv, "hesitated"):
                 yield sentence
             return

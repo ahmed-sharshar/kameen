@@ -74,7 +74,8 @@ async def make_playbook(conv_id):
         if conv.mode == "drill":
             # Fallback lines are spoken without a model, so they must already be safe.
             stage["example_lines"] = [line for line in stage["example_lines"]
-                                      if not guards.ASKS_FOR_SECRET.search(line)]
+                                      if not guards.ASKS_FOR_SECRET.search(line)
+                                      and not guards.gives_payment_detail(line)]
         playbook[stage["stage"]] = stage
     if conv.mode == "drill" and "ASK" in playbook:
         playbook["ASK"]["example_lines"] = [conv.card["commit_question"]]

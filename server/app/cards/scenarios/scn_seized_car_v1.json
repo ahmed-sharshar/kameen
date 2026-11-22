@@ -1,0 +1,86 @@
+{
+  "id": "scn_seized_car_v1",
+  "title": "Seized car at half price: pay a deposit to hold it",
+  "scam_type": "vehicle_deposit_fraud",
+  "impersonates": "a private seller of a customs-seized car",
+  "channels": [
+    "whatsapp",
+    "voice"
+  ],
+  "language": "en",
+  "difficulty": 2,
+  "hook": "A customs-seized car is for sale far below market price, many buyers want it, and only a deposit sent today will hold it before anyone can view it.",
+  "opening_line": {
+    "whatsapp": "Hi, you asked about the SUV. It is a customs-seized car, so I am selling it for AED 35,000, but many people are asking about it today.",
+    "voice": "Hello, I am calling about the repossessed car you were interested in. It must be sold this week, and the first buyer to send a deposit gets it."
+  },
+  "pressure_tactics": [
+    "scarcity",
+    "urgency",
+    "greed"
+  ],
+  "stage_goals": {
+    "PRETEXT": "Explain that the car was seized by customs or repossessed and must be sold quickly, which is why the price is so low",
+    "PRESSURE": "Say several other buyers are interested and the car goes to whoever sends a deposit first today, before any viewing",
+    "ASK": "Say the car will be held only once the deposit arrives, then ask the commit question"
+  },
+  "ask": "a deposit transfer",
+  "commit_question": "Are you ready to transfer the deposit now so I can hold the car for you?",
+  "commit_signals": [
+    "i will transfer the deposit now",
+    "send me the account details",
+    "send me the iban",
+    "i will pay now"
+  ],
+  "red_flags": [
+    "Price far below market value",
+    "Deposit demanded before any viewing",
+    "Pressure from other buyers today"
+  ],
+  "lesson": {
+    "headline": "Never pay for a car you have not seen",
+    "three_points": [
+      "Do not transfer any deposit before you have seen the car and checked its papers in person.",
+      "A price far below market value is bait. Real seized cars are sold through official auctions, not private chats.",
+      "Talk of other buyers is pressure. A real seller will let you view the car first."
+    ],
+    "report_to": "contact the Aman service of Abu Dhabi Police"
+  },
+  "decoy_targets": [
+    "iban",
+    "name",
+    "callback_number"
+  ],
+  "source_ref": "drafted by scripts/new_scenario.py",
+  "approved_by": null,
+  "translations": {
+    "ar": {
+      "approved_by": null,
+      "opening_line": {
+        "whatsapp": "هلا، إنت سألت عن السيارة الـ SUV. هي محجوزة من الجمارك، عشان جي ببيعها بـ 35,000 درهم، بس وايد ناس يسألون عنها اليوم.",
+        "voice": "السلام عليكم، أتصل بخصوص السيارة المسحوبة اللي كنت مهتم فيها. لازم تنباع هالأسبوع، وأول واحد يحول العربون ياخذها."
+      },
+      "commit_question": "مستعد تحول العربون الحين عشان أحجز لك السيارة؟",
+      "commit_signals": [
+        "بحول العربون الحين",
+        "طرش لي تفاصيل الحساب",
+        "طرش لي الآيبان",
+        "بدفع الحين"
+      ],
+      "red_flags": [
+        "السعر وايد أقل من سعر السوق",
+        "يطلب عربون قبل لا تشوف السيارة",
+        "ضغط بإن في مشترين غيرك اليوم"
+      ],
+      "lesson": {
+        "headline": "لا تدفع أبداً حق سيارة ما شفتها",
+        "three_points": [
+          "لا تحول أي عربون قبل لا تشوف السيارة وتتأكد من أوراقها بنفسك.",
+          "السعر اللي وايد أقل من السوق طُعم. السيارات المحجوزة الحقيقية تنباع في مزادات رسمية، مب في محادثات خاصة.",
+          "كلام إن في مشترين غيرك هو ضغط بس. البايع الصدق بيخليك تشوف السيارة أول."
+        ],
+        "report_to": "تواصل مع خدمة أمان في شرطة أبوظبي"
+      }
+    }
+  }
+}

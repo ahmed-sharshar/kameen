@@ -1,0 +1,95 @@
+{
+  "id": "scn_job_visa_fee_v1",
+  "title": "Job offer you never applied for: pay the visa fee first",
+  "scam_type": "job_offer_fee",
+  "impersonates": "a recruitment agency",
+  "channels": [
+    "voice",
+    "whatsapp",
+    "email",
+    "sms"
+  ],
+  "language": "en",
+  "difficulty": 2,
+  "hook": "A recruiter says you were picked for a well-paid job you never applied for, and a visa and medical processing fee must be paid by transfer before the contract can be sent.",
+  "opening_line": {
+    "voice": "Hello, I am calling from an international recruitment agency. Your profile was shortlisted for a supervisor role paying AED 18,000 a month with housing.",
+    "whatsapp": "Hello, I am a recruiter with an international hiring agency. Your profile was shortlisted for a supervisor role paying AED 18,000 a month with housing, are you available to talk?",
+    "email": "Congratulations, you have been selected for a senior position with a monthly salary of AED 18,000 plus allowances. Please reply today so we can start your visa processing and send your contract.",
+    "sms": "Recruitment team: you have been shortlisted for a well-paid job in the UAE. Reply today to confirm your interest before the position is filled."
+  },
+  "pressure_tactics": [
+    "greed",
+    "scarcity",
+    "urgency"
+  ],
+  "stage_goals": {
+    "PRETEXT": "Introduce yourself as a recruiter who found the person's profile and says they were shortlisted for a well-paid position with housing and transport allowances",
+    "PRESSURE": "Say other candidates are waiting and the offer closes today unless the visa and medical processing fee of AED 1,500 is paid so the contract can be issued",
+    "ASK": "Say the finance team will share the transfer details for the processing fee, then ask the commit question"
+  },
+  "ask": "a visa processing fee transfer",
+  "commit_question": "Are you ready to transfer the processing fee today so we can send your contract?",
+  "commit_signals": [
+    "i will transfer the fee",
+    "send me the bank details",
+    "i can pay the fee today",
+    "where do i send the money",
+    "ok i will pay now"
+  ],
+  "red_flags": [
+    "A job offer for a role you never applied for",
+    "A fee must be paid before you get a contract",
+    "Pressure to decide today or lose the job"
+  ],
+  "lesson": {
+    "headline": "A real employer never asks you to pay to get hired",
+    "three_points": [
+      "In the UAE the employer pays for your visa and medical test, not you. Any request for a fee before a contract is a warning sign.",
+      "Check the company yourself using contact details you find on your own, not the ones the recruiter gives you.",
+      "A salary that is too good and an offer you never applied for are bait. Stop replying and report the message."
+    ],
+    "report_to": "contact the Aman service of Abu Dhabi Police"
+  },
+  "decoy_targets": [
+    "iban",
+    "payment_link",
+    "name",
+    "callback_number"
+  ],
+  "source_ref": "drafted by scripts/new_scenario.py",
+  "approved_by": null,
+  "translations": {
+    "ar": {
+      "approved_by": null,
+      "opening_line": {
+        "voice": "مرحبا، معاك وكالة توظيف دولية. ملفك انختار لوظيفة مشرف براتب 18,000 درهم في الشهر مع سكن.",
+        "whatsapp": "مرحبا، معاك موظف توظيف من وكالة توظيف دولية. ملفك انختار لوظيفة مشرف براتب 18,000 درهم في الشهر مع سكن، فاضي نتكلم؟",
+        "email": "مبروك، انختاريت لوظيفة عالية براتب 18,000 درهم في الشهر مع بدلات. رد علينا اليوم عشان نبدا إجراءات الفيزا ونرسل لك العقد.",
+        "sms": "فريق التوظيف: انختاريت لوظيفة براتب زين في الإمارات. رد اليوم وأكد اهتمامك قبل لا تنشغل الوظيفة."
+      },
+      "commit_question": "إنت جاهز تحوّل رسوم الإجراءات اليوم عشان نرسل لك العقد؟",
+      "commit_signals": [
+        "بحوّل الرسوم",
+        "طرش لي تفاصيل الحساب",
+        "أقدر أدفع الرسوم اليوم",
+        "وين أحوّل الفلوس",
+        "أوكي بدفع الحين"
+      ],
+      "red_flags": [
+        "عرض وظيفة ما قدّمت عليها أصلاً",
+        "لازم تدفع رسوم قبل لا يوصلك العقد",
+        "ضغط عشان تقرر اليوم وإلا تروح عليك الوظيفة"
+      ],
+      "lesson": {
+        "headline": "صاحب الشغل الحقيقي ما يطلب منك تدفع عشان يوظفك",
+        "three_points": [
+          "في الإمارات صاحب الشغل هو اللي يدفع الفيزا والفحص الطبي، مب إنت. أي طلب رسوم قبل العقد علامة خطر.",
+          "تأكد من الشركة بنفسك من أرقام تلقاها إنت، مب الأرقام اللي يعطيك إياها الموظف.",
+          "الراتب الوايد زين والعرض اللي ما قدّمت عليه طُعم. وقّف الرد وبلّغ عن الرسالة."
+        ],
+        "report_to": "تواصل مع خدمة أمان في شرطة أبوظبي"
+      }
+    }
+  }
+}

@@ -71,6 +71,17 @@ Both write the numbers shown on the dashboard's Evidence tab.
 
 A drill runs only from a card whose `approved_by` field names the person who read and approved it. The three cards in `server/app/cards/scenarios/` are approved in English and in Arabic; each language is approved on its own, under `translations`. A new card, or a new translation, starts with `"approved_by": null` and is refused until someone puts their name there.
 
+## Adding a scenario
+
+```bash
+cd server
+.venv/bin/python scripts/new_scenario.py rental_deposit "A fake landlord wants a deposit before any viewing."
+```
+
+The script asks the strongest model for a card in English and Emirati Arabic, checks it against the card rules (a voice and a text opening line, a commit question that asks for nothing, no links or account numbers, three red flags, a three-point lesson) and saves it unapproved. It costs a few cents. Read the card, edit it if needed, then approve it. `scripts/arabic_review.py` adds its Arabic lines to the reviewer's page.
+
+In every drill the agent may not give an account number, IBAN, wallet, link, email address or phone number: a made-up one could belong to someone real. A reply that contains one is replaced by the card's commit question.
+
 ## Sessions that go quiet
 
 Once a minute the server closes sessions nobody is in any more: a drill after 15 minutes without a message, a decoy session after two hours. A drill closed this way still gets the reveal and the lesson on its record, with the outcome `stopped`. Leaving the drill page does the same at once.

@@ -44,9 +44,10 @@ def test_arabic_drill_is_refused_until_its_card_is_approved(client, code, arabic
     assert client.post("/sessions", json=body, headers=code).status_code == 200
 
 
-def test_shipped_cards_are_approved_in_both_languages():
-    for card in cards.SCENARIOS.values():
-        assert cards.languages(card) == {"en": True, "ar": True}, card["id"]
+def test_the_first_three_cards_are_approved_in_both_languages():
+    # Cards drafted later by scripts/new_scenario.py ship unapproved until a person signs them off.
+    for card_id in ("scn_bank_otp_v1", "scn_traffic_fine_v1", "scn_courier_parcel_v1"):
+        assert cards.languages(cards.SCENARIOS[card_id]) == {"en": True, "ar": True}, card_id
 
 
 def test_arabic_drill_runs_and_reveals_in_arabic(client, code, arabic_approved):
@@ -114,3 +115,18 @@ def test_arabic_commit_question_arms_the_check_and_refusals_count():
     assert g.check_inbound(drill(card=conv.card, language="ar"), "البطاقة عندي")[1] == "would_comply"
     assert g.check_inbound(drill(language="ar"), "هذا احتيال، ما بعطيك شي")[1] == "resisted"
     assert g.check_inbound(drill(language="ar"), "شو تقصد بالرمز؟")[1] == "continuing"
+
+
+def test_every_shipped_card_passes_the_card_rules():
+    for card in cards.SCENARIOS.values():
+        assert cards.problems(card) == [], card["id"]
+
+
+def test_card_rules_catch_a_card_that_asks_for_a_secret_or_gives_an_account():
+    import copy
+    card = copy.deepcopy(cards.SCENARIOS["scn_bank_otp_v1"])
+    card["commit_question"] = "Please read me the code now?"
+    card["opening_line"]["sms"] = "Pay now at secure-bank-verify.com/login"
+    card["translations"]["ar"]["red_flags"] = ["واحد"]
+    found = " ".join(cards.problems(card))
+    assert "asks for a secret" in found and "contains a link" in found and "Arabic: exactly three red flags" in found

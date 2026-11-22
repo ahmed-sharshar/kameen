@@ -1,0 +1,91 @@
+{
+  "id": "scn_investment_group_v1",
+  "title": "Private investment group: guaranteed daily returns",
+  "scam_type": "investment_fraud",
+  "impersonates": "a friendly contact running a private investment group",
+  "channels": [
+    "voice",
+    "whatsapp",
+    "sms"
+  ],
+  "language": "en",
+  "difficulty": 2,
+  "hook": "A friendly contact says their private crypto group pays guaranteed daily returns, and the current round closes today.",
+  "opening_line": {
+    "voice": "Hello, I got your number from a friend in our private investment group. We pay a guaranteed 3% every day, and there is one place left in today's round.",
+    "whatsapp": "Hi, it's been a while! I joined a private investment group that pays a guaranteed 3% every day, and I saved you a spot in today's round.",
+    "sms": "Hello friend, our private investment group has one place left in today's round with guaranteed daily returns. Reply if you want in before it closes tonight."
+  },
+  "pressure_tactics": [
+    "greed",
+    "scarcity",
+    "urgency"
+  ],
+  "stage_goals": {
+    "PRETEXT": "Act as a warm, friendly contact who has made good money in a private investment group, and offer to bring the person in as a favour",
+    "PRESSURE": "Promise guaranteed daily returns and say the current round closes tonight, so the first deposit must be made today",
+    "ASK": "Say the first deposit is AED 2,000 in crypto and the payment details will follow, then ask the commit question"
+  },
+  "ask": "a first crypto transfer",
+  "commit_question": "Are you ready to make your first transfer today before the round closes?",
+  "commit_signals": [
+    "what is the wallet address",
+    "how do i send the crypto",
+    "ok i will buy the crypto now",
+    "add me to the group",
+    "i am ready to deposit"
+  ],
+  "red_flags": [
+    "Guaranteed daily returns",
+    "A deadline to join today",
+    "Payment only in crypto"
+  ],
+  "lesson": {
+    "headline": "No real investment guarantees daily profit",
+    "three_points": [
+      "Guaranteed returns do not exist. Anyone promising them is planning to take your money.",
+      "A deadline to invest today is pressure, not opportunity. Stop and talk to someone you trust first.",
+      "Crypto transfers cannot be reversed. Only invest through licensed firms you have checked yourself."
+    ],
+    "report_to": "contact the Aman service of Abu Dhabi Police"
+  },
+  "decoy_targets": [
+    "wallet",
+    "payment_link",
+    "name"
+  ],
+  "source_ref": "drafted by scripts/new_scenario.py",
+  "approved_by": null,
+  "translations": {
+    "ar": {
+      "approved_by": null,
+      "opening_line": {
+        "voice": "هلا، خذت رقمك من ربيع ويانا في قروب استثمار خاص. القروب يعطي ربح مضمون ٣٪ كل يوم، وباقي مكان واحد في دفعة اليوم.",
+        "whatsapp": "هلا، من زمان عنك! دخلت قروب استثمار خاص يعطي ربح مضمون ٣٪ كل يوم، وحجزت لك مكان في دفعة اليوم.",
+        "sms": "هلا خوي، قروب الاستثمار الخاص عندنا باقي فيه مكان واحد في دفعة اليوم وأرباحه مضمونة كل يوم. رد علي إذا تبا تدخل قبل لا يسكر الليلة."
+      },
+      "commit_question": "جاهز تحول أول دفعة اليوم قبل لا تسكر الدفعة؟",
+      "commit_signals": [
+        "شو عنوان المحفظة",
+        "شلون أرسل الكريبتو",
+        "خلاص بشتري الكريبتو الحين",
+        "دخلني القروب",
+        "أنا جاهز أودع"
+      ],
+      "red_flags": [
+        "أرباح مضمونة كل يوم",
+        "مهلة عشان تدخل اليوم",
+        "الدفع بالكريبتو بس"
+      ],
+      "lesson": {
+        "headline": "ما في استثمار حقيقي يضمن لك ربح كل يوم",
+        "three_points": [
+          "الأرباح المضمونة مب موجودة. أي حد يوعدك فيها يبا ياخذ فلوسك.",
+          "مهلة إنك تستثمر اليوم هذا ضغط، مب فرصة. وقف وشاور حد تثق فيه أول.",
+          "تحويلات الكريبتو ما ترجع. استثمر بس عن طريق شركات مرخصة إنت متأكد منها بنفسك."
+        ],
+        "report_to": "تواصل مع خدمة أمان في شرطة أبوظبي"
+      }
+    }
+  }
+}

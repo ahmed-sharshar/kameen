@@ -5,7 +5,6 @@
   "impersonates": "traffic authority",
   "channels": [
     "sms",
-    "whatsapp",
     "voice"
   ],
   "language": "en",

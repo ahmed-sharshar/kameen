@@ -1,0 +1,95 @@
+{
+  "id": "scn_rental_deposit_v1",
+  "title": "Overseas landlord: pay a deposit before viewing",
+  "scam_type": "rental_deposit",
+  "impersonates": "a private landlord",
+  "channels": [
+    "voice",
+    "whatsapp",
+    "email",
+    "sms"
+  ],
+  "language": "en",
+  "difficulty": 2,
+  "hook": "A landlord who is abroad offers a flat at a low rent and says many people want it, so a holding deposit must be paid before any viewing.",
+  "opening_line": {
+    "voice": "Hello, I am calling about the flat you asked about. The rent is AED 3,500 a month, but I am abroad for work and several people want it.",
+    "whatsapp": "Hello, I saw you asked about my flat. The rent is AED 3,500 a month, but I am abroad for work and many people are interested.",
+    "email": "Thank you for your interest in my flat. I am currently working abroad, so I am reserving it for the first person who pays a holding deposit of AED 5,000.",
+    "sms": "Hi, the flat is still available at AED 3,500 a month. I have three other people asking, so let me know quickly if you want it."
+  },
+  "pressure_tactics": [
+    "scarcity",
+    "urgency",
+    "greed"
+  ],
+  "stage_goals": {
+    "PRETEXT": "Present yourself as the owner of a well-priced flat who is working abroad and cannot show it in person",
+    "PRESSURE": "Say several other people want the flat and it goes to whoever pays the holding deposit first, today",
+    "ASK": "Say the deposit secures the flat and the keys will be sent after, then ask the commit question"
+  },
+  "ask": "a holding deposit transfer",
+  "commit_question": "Are you ready to transfer the holding deposit today so I can reserve the flat for you?",
+  "commit_signals": [
+    "i will transfer the deposit",
+    "send me your account",
+    "how do i pay the deposit",
+    "i can pay it today",
+    "i will send the money now"
+  ],
+  "red_flags": [
+    "The landlord is abroad and cannot show the flat",
+    "Rent far below similar flats",
+    "Deposit demanded before any viewing"
+  ],
+  "lesson": {
+    "headline": "Never pay for a flat you have not seen",
+    "three_points": [
+      "Do not send any deposit until you have viewed the flat in person and seen the owner's title deed and ID.",
+      "A low rent and many other interested people are tricks to rush you. A real landlord can wait a day.",
+      "Use a licensed real estate agent and sign a registered tenancy contract before paying anything."
+    ],
+    "report_to": "contact the Aman service of Abu Dhabi Police"
+  },
+  "decoy_targets": [
+    "iban",
+    "name",
+    "payment_link",
+    "callback_number"
+  ],
+  "source_ref": "drafted by scripts/new_scenario.py",
+  "approved_by": null,
+  "translations": {
+    "ar": {
+      "approved_by": null,
+      "opening_line": {
+        "voice": "هلا، أتصل فيك بخصوص الشقة اللي سألت عنها. الإيجار 3,500 درهم في الشهر، بس أنا برا الدولة عشان الشغل وواجد ناس يبونها.",
+        "whatsapp": "هلا، شفت إنك سألت عن شقتي. الإيجار 3,500 درهم في الشهر، بس أنا برا الدولة عشان الشغل وواجد ناس يبونها.",
+        "email": "مشكور على اهتمامك بالشقة. أنا الحين أشتغل برا الدولة، فبحجزها لأول واحد يحوّل عربون 5,000 درهم.",
+        "sms": "هلا، الشقة بعدها موجودة بـ 3,500 درهم في الشهر. في ثلاث غيرك يسألون عنها، فخبرني بسرعة إذا تبيها."
+      },
+      "commit_question": "جاهز تحوّل العربون اليوم عشان أحجز لك الشقة؟",
+      "commit_signals": [
+        "بحوّل العربون",
+        "طرش لي رقم حسابك",
+        "كيف أدفع العربون",
+        "أقدر أدفع اليوم",
+        "بحوّل الفلوس الحين"
+      ],
+      "red_flags": [
+        "المالك برا الدولة وما يقدر يوريك الشقة",
+        "الإيجار أرخص واجد من الشقق اللي مثلها",
+        "يطلب عربون قبل لا تشوف الشقة"
+      ],
+      "lesson": {
+        "headline": "لا تدفع أبداً على شقة ما شفتها",
+        "three_points": [
+          "لا تحوّل أي عربون قبل لا تشوف الشقة بنفسك وتشوف سند الملكية وهوية المالك.",
+          "الإيجار الرخيص وكثرة الناس اللي يبونها حيلة عشان يستعجلونك. المالك الصدق يقدر يصبر يوم.",
+          "تعامل مع وسيط عقاري مرخّص ووقّع عقد إيجار مسجّل قبل لا تدفع أي شي."
+        ],
+        "report_to": "تواصل مع خدمة أمان في شرطة أبوظبي"
+      }
+    }
+  }
+}

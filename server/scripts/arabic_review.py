@@ -56,7 +56,8 @@ SIGNALS = {      # what each Arabic phrase is meant to say; the Arabic list is n
     "أوكي بدفع": "OK, I will pay",
     "وين أدخل بيانات البطاقة": "Where do I enter the card details?",
 }
-for number, scenario_id in enumerate(["scn_bank_otp_v1", "scn_traffic_fine_v1", "scn_courier_parcel_v1"], 1):
+FIRST = ["scn_bank_otp_v1", "scn_traffic_fine_v1", "scn_courier_parcel_v1"]       # their IDs must not move
+for number, scenario_id in enumerate(FIRST + sorted(set(cards.SCENARIOS) - set(FIRST)), 1):
     english, arabic = cards.scenario(scenario_id), cards.scenario(scenario_id, "ar")
     section = f"C{number}. Drill scenario: {english['title']} (Kameen plays the scammer)"
     letter = f"C{number}-"
@@ -64,8 +65,9 @@ for number, scenario_id in enumerate(["scn_bank_otp_v1", "scn_traffic_fine_v1", 
         add(section, letter, f"Opening line ({channel})", english["opening_line"][channel], text)
     add(section, letter, "The one question the agent may ask before the drill stops",
         english["commit_question"], arabic["commit_question"])
-    for ours in arabic["commit_signals"]:
-        add(section, letter, "Something a trainee might say that means: I am about to give it", SIGNALS[ours], ours)
+    for theirs, ours in zip(english["commit_signals"], arabic["commit_signals"]):
+        add(section, letter, "Something a trainee might say that means: I am about to comply",
+            SIGNALS.get(ours, theirs), ours)
     for theirs, ours in zip(english["red_flags"], arabic["red_flags"]):
         add(section, letter, "Warning sign shown after the drill", theirs, ours)
     add(section, letter, "Lesson headline", english["lesson"]["headline"], arabic["lesson"]["headline"])

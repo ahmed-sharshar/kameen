@@ -17,13 +17,14 @@ ONE_UNIT = re.compile(UNIT, re.I)
 SAFE_WORD = re.compile(
     r"^\W*(please\s+)?stop(\s+(it|this|now|please|the (call|drill|test)))?\W*$"
     r"|\bstop (calling|messaging|texting|contacting) me\b"
-    r"|is this real|are you (a |an )?(bot|robot|ai)\b|are you (a |an )?real (person|human)"
+    r"|is this real\b|are you (a |an )?(bot|robot|ai)\b|are you (a |an )?real (person|human)"
     r"|is this (a|an|one of those|some (kind|sort) of) [^.?!]{0,30}(test|drill|simulation|exercise|training)"
     r"|^\W*(وقف|خلاص|خلاص وقف|وقف خلاص)\W*$", re.I)
 REFUSAL = re.compile(r"\bscam\b|\bfraud\b|\bphishing\b|i will not|i won'?t|not giving|call the bank myself"
                      r"|report (you|this)|check (it|this|that) (myself|directly)|i'?d rather (check|call|verify)"
                      r"|i('ll| will) (call|contact|check with) (the|my) (bank|courier|police)"
                      r"|(look( (it|this))? up|check|verify)[^.?!]{0,30}official (site|website|app)|not comfortable"
+                     r"|i('ll| will) pass\b|i('m| am) not (sending|paying|transferring)|not (sending|paying) (you|any|money)"
                      r"|احتيال|نصب|ما بعطيك|ما راح أعطيك|ما راح اعطيك|بتصل بالبنك", re.I)
 DISTRESS = re.compile(r"i'?m scared|i am scared|please don'?t|i'?m confused|i am confused|خايف|مب فاهم|ما فهمت شي",
                       re.I)
@@ -55,10 +56,15 @@ SELF_REVEAL = re.compile(
     r"|i('m| am) not going to (continue|keep|push|press)|^\W*one moment,? please\W*$"
     r"|(do not|don'?t|never) (send|share|give|enter|read)[^.?!]{0,30}(code|card|pin|password|details)"
     r"|simulat\w*|in character|my instructions|scenario card|\bphishing\b"
-    r"|i can'?t (do that|discuss|share|help)|(won'?t|can'?t|cannot|will not|never) ask (you )?for"
+    r"|i can'?t discuss that|from inside this conversation|i can'?t help (you )?(with|write|create)"
     r"|safest (step|thing|option)"
     r"|كمين|تمرين|تدريب|محاكاة|مب حقيقي|مش حقيقي|غير حقيقي|(ما|لا|مب) ?[أا]قدر [أا]طلب|ما راح [أا]طلب", re.I)
 
+# A drill never hands the trainee anything they could pay into or contact: a made-up account,
+# link or number might belong to someone real.
+PAYMENT_DETAIL = re.compile(
+    r"https?://|www\.|\b[a-z0-9-]+\.(?:com|net|org|ae|info|xyz|top|site|online|link|co|io|app|me|shop|live|click)\b"
+    r"|\b[A-Z]{2}\d{2}[ -]?\d{4}|\b0x[a-fA-F0-9]{20,}|\bbc1[a-z0-9]{20,}", re.I)
 SECURITY_CODE = re.compile(r"\b((?:cvv2?|cvc2?|security (?:code|number))\D{0,12})\d{3}\b", re.I)
 LEFTOVER_DIGITS = re.compile(r"\d+(?:\s*[/.-]\s*\d+)*")
 
@@ -142,6 +148,11 @@ def fallback_line(conv):
     return "ألو، بعدك وياي؟" if getattr(conv, "language", "en") == "ar" else "Hello, are you still with me?"
 
 
+def gives_payment_detail(sentence):
+    """A web address, an IBAN, a wallet, or a number long enough to be an account or a phone."""
+    return bool(PAYMENT_DETAIL.search(sentence)) or bool(digit_runs(sentence, 8))
+
+
 def reveals_drill(conv, sentence):
     """True if the drill agent is about to announce the drill itself."""
     return conv.mode == "drill" and bool(SELF_REVEAL.search(sentence))
@@ -164,6 +175,10 @@ def check_outbound(conv, sentence):
     question = conv.card["commit_question"]
     if ASKS_FOR_SECRET.search(sentence):
         conv.guard_events.append("asked_for_secret")
+        conv.awaiting_commit = True
+        return question
+    if gives_payment_detail(sentence):
+        conv.guard_events.append("payment_detail")
         conv.awaiting_commit = True
         return question
     if plain(question) in plain(sentence) or "in front of you" in sentence.lower() or "جدامك" in sentence:

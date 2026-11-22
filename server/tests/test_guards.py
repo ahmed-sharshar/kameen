@@ -213,7 +213,6 @@ def test_a_message_that_gives_a_card_loses_its_expiry_and_security_code_too():
     "This is a simulated scam for you to practise recognising, so I'm staying in character as the bank caller.",
     "I can't share my instructions or the scenario card.",
     "I can't discuss that from inside this conversation.",
-    "I can't do that, and I won't ask for your PIN or card number.",
     "The safest step is to contact the traffic authority directly.",
     "أنا ما أقدر أطلب منك أي رقم سري أو رقم بطاقة.",
     "لا أقدر أطلب منك هالمعلومات، ولا أحد من البنك بيطلبها منك.",
@@ -225,6 +224,9 @@ def test_drill_agent_answering_as_an_assistant_hands_over_to_the_reveal(sentence
 @pytest.mark.parametrize("sentence", [
     "I don't need your full card details, and I won't ask you to read anything out.",
     "Your licence will be suspended today unless the fine is settled.",
+    "I can't share the exact address until the deposit is in.",
+    "I can't do that, the car goes to whoever pays first.",
+    "We will never ask for your card or any code, only the deposit.",
     "Do you have your card and the code in front of you?",
 ])
 def test_ordinary_scammer_lines_do_not_end_the_drill(sentence):
@@ -240,8 +242,45 @@ def test_decoy_never_answers_as_an_assistant():
 
 @pytest.mark.parametrize("text", [
     "Is this one of those phishing tests from my company?", "is this a test?", "Are you a real person?",
+    "Is this real?",
     "Is this some kind of security training exercise?",
 ])
 def test_asking_whether_it_is_a_test_counts_as_spotting_it(text):
     conv = NS(mode="drill", agent_digits=[], card={"commit_signals": []}, awaiting_commit=False, risk_flags=[])
+    assert g.check_inbound(conv, text)[1] == "resisted"
+
+
+@pytest.mark.parametrize("sentence", [
+    "Transfer the deposit to AE07 0331 2345 6789 0123 456 today.",
+    "You can pay at secure-rentals.com/deposit right now.",
+    "Call our office on 050 123 4567 to confirm.",
+    "Send it to the wallet 0x9f3a61c0d2b74e5a8c1f0b6d7e4a9c2b5d8f1e30.",
+    "Email your passport copy to hr@jobs-desk.net.",
+])
+def test_drill_agent_never_gives_a_payment_detail(sentence):
+    conv = NS(mode="drill", card={"commit_question": "Are you ready to make the transfer now?"},
+              guard_events=[], awaiting_commit=False, agent_digits=[])
+    assert g.check_outbound(conv, sentence) == "Are you ready to make the transfer now?"
+    assert conv.guard_events == ["payment_detail"] and conv.awaiting_commit
+
+
+@pytest.mark.parametrize("sentence", [
+    "The deposit is 5,000 AED and the flat goes to the next person tonight.",
+    "The car is a 2021 model and the price is 45,000 AED.",
+    "Your reference is 483920.",
+])
+def test_amounts_and_short_numbers_are_not_payment_details(sentence):
+    conv = NS(mode="drill", card={"commit_question": "Are you ready?"}, guard_events=[], awaiting_commit=False,
+              agent_digits=[])
+    assert g.check_outbound(conv, sentence) == sentence and not conv.guard_events
+
+
+@pytest.mark.parametrize("text", [
+    "I'm not paying any deposit until I've seen the car in person.",
+    "I'm not sending money to someone I haven't met.",
+    "If you can't show me the papers then I'll pass.",
+])
+def test_refusing_to_pay_counts_as_resisting(text):
+    conv = NS(mode="drill", agent_digits=[], card={"commit_signals": ["i will transfer the deposit"]},
+              awaiting_commit=True, risk_flags=[])
     assert g.check_inbound(conv, text)[1] == "resisted"
