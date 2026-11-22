@@ -28,7 +28,11 @@ YES = re.compile(r"^(yes|yeah|yep|ok|okay|sure|i do|i have|ready|go ahead|نعم
 ASKS_FOR_SECRET = re.compile(
     r"\b(read|tell|give|say|type|share|enter)\b.{0,40}\b(code|otp|password|pin|card number|cvv)\b"
     r"|what(?:'s| is) (the|your) (code|otp|pin|password)", re.I)
-ROLE_LEAK = re.compile(r"as an ai|language model|system prompt|playbook|\bclaude\b|anthropic", re.I)
+ROLE_LEAK = re.compile(r"as an ai|language model|system prompt|playbook|\bclaude\b|anthropic|\bkameen\b", re.I)
+# The drill agent must never announce the drill: the server does that, with the lesson attached.
+SELF_REVEAL = re.compile(r"\bkameen\b|\b(a|an|the|this) (training )?(drill|simulation|exercise)\b"
+                         r"|training (drill|exercise|simulation)|not a real (call|payment|bank|fine|parcel|message)"
+                         r"|i('m| am) going to stop here", re.I)
 
 REVEAL_VERDICTS = {"resisted", "attempted_disclosure", "would_comply", "distress"}
 
@@ -90,6 +94,11 @@ def fallback_line(conv):
         return stall_line(conv)
     examples = (conv.playbook or {}).get(conv.stage, {}).get("example_lines", [])
     return examples[0] if examples else "Hello, are you still with me?"
+
+
+def reveals_drill(conv, sentence):
+    """True if the drill agent is about to announce the drill itself."""
+    return conv.mode == "drill" and bool(SELF_REVEAL.search(sentence))
 
 
 def check_outbound(conv, sentence):

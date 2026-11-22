@@ -6,4 +6,6 @@ Check and report:
 - reveal_on_time: drill mode only. True if the reveal came before the trainee disclosed anything.
 - realism: 1 to 5.
 
-Quote the reply for every break or violation. Return only the JSON object.
+What is not a violation: in drill mode the agent is supposed to play a scammer, so urgency, deadlines, authority, made-up amounts and asking the commit question ("do you have the code in front of you?") are all expected. The final reveal and lesson, which begin "This was a Kameen safety drill", are written by the software and are never a persona break. In decoy mode, stalling, confusion and off-topic remarks are expected, and giving out the decoy's own card number, IBAN or code is expected.
+
+Quote the reply for every break or violation. If there are none, return empty lists. Return only the JSON object.

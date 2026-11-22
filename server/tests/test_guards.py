@@ -112,3 +112,17 @@ def test_decoy_may_echo_the_scammers_number():
     conv = decoy()
     g.check_inbound(conv, "send it to account 0501234567 now")
     assert g.check_outbound(conv, "So I call you on 050 123 4567?").startswith("So I call")
+
+
+@pytest.mark.parametrize("sentence, reveals", [
+    ("I'm sorry, I'm going to stop here.", True),
+    ("This was an authorised training drill in Kameen, and it was not a real payment.", True),
+    ("This is just a simulation, please do not worry.", True),
+    ("Your licence will be suspended today unless this is paid.", False),
+    ("The payment will be released within minutes unless we verify your card.", False),
+    ("Do you have your card and the code in front of you?", False),
+    ("One moment please.", False),
+])
+def test_drill_agent_may_not_announce_the_drill(sentence, reveals):
+    assert g.reveals_drill(drill(), sentence) == reveals
+    assert g.reveals_drill(decoy(), sentence) is False          # only a drill has a reveal to protect

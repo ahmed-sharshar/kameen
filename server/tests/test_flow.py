@@ -297,3 +297,29 @@ def test_eval_upload_needs_admin_code(client, code):
     assert client.post("/eval", json=metrics, headers=code).status_code == 401
     assert client.post("/eval", json=metrics, headers={"X-Admin-Code": "test-admin"}).status_code == 200
     assert client.get("/eval/latest", headers=code).json() == metrics
+
+
+def test_server_takes_over_if_the_model_announces_the_drill(client, code, monkeypatch):
+    from app import fake
+    lines = iter(["I understand this is stressful. I am going to stop here. This was a training drill."])
+    monkeypatch.setattr(fake, "reply", lambda conv: next(lines))
+    conv_id = start(client, code, mode="drill", scenario_id="scn_bank_otp_v1",
+                    enrolment_id=enrol(client, code))["conversation_id"]
+    ended = say(client, code, conv_id, "I am not sure about this, who are you?")
+    assert ended["status"] == "ended"
+    assert ended["reply"].startswith("I understand this is stressful. This was a Kameen safety drill.")
+    assert "I am going to stop here" not in ended["reply"] and "training drill" not in ended["reply"]
+    state = detail(client, code, conv_id)
+    assert state["drill_result"]["outcome"] == "hesitated"
+    assert [m["speaker"] for m in state["messages"]][-2:] == ["agent", "agent"]
+
+
+def test_extracted_values_must_fit_their_type():
+    ok = extract.plausible
+    assert ok("account", "1234567890123") and not ok("account", "Traffic Department")
+    assert not ok("account", "secure safe account assigned to you")
+    assert ok("iban", "AE07 0331 2345 6789 0123 456") and not ok("iban", "the safe account")
+    assert ok("phone", "050 123 4567") and not ok("phone", "our security line") and not ok("phone", "12")
+    assert ok("url", "pay-fines.example.com/x") and not ok("url", "the payment page")
+    assert ok("wallet", "0x52908400098527886E0F7030069857D2E4169EE7") and not ok("wallet", "my wallet")
+    assert ok("name", "Mr. Adel") and ok("org", "Traffic Department") and not ok("name", "  ")

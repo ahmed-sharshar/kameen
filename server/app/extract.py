@@ -41,6 +41,23 @@ def normalise(kind, value):
     return value.lower() if kind in ("name", "org") else value
 
 
+def plausible(kind, value):
+    """Does the value have the shape its type claims? A model can mislabel a phrase as an account."""
+    count = sum(c.isdigit() for c in value.translate(guards.EASTERN))
+    if kind == "iban":
+        compact = re.sub(r"[^A-Za-z0-9]", "", value)
+        return compact[:2].isalpha() and 15 <= len(compact) <= 34 and count >= 10
+    if kind == "account":
+        return count >= 8
+    if kind == "phone":
+        return 7 <= count <= 15
+    if kind in ("url", "payment_link"):
+        return "." in value and " " not in value.strip()
+    if kind == "wallet":
+        return len(value.strip()) >= 26 and " " not in value.strip()
+    return bool(value.strip())                       # name, org
+
+
 def _around(text, start, end, margin=40):
     return text[max(0, start - margin):min(len(text), end + margin)].strip()
 
@@ -86,6 +103,8 @@ def find_patterns(text):
 async def _save(conv, item, source, new_items):
     if canaries.is_canary(conv.canary_kit, item["value"]):
         return                                           # never report our own bait
+    if not plausible(item["type"], item["value"]):
+        return                                           # the label does not fit the value
     normalised = normalise(item["type"], item["value"])
     if not normalised:
         return

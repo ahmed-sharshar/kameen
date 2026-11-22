@@ -51,6 +51,7 @@ async def model_text(conv, history):
     if not llm.enabled():
         yield fake.reply(conv)
         return
+    llm.trace(history, turn_note(conv))
     async with llm.client().messages.stream(
         model=llm.model("live"),
         max_tokens=300,
@@ -62,6 +63,7 @@ async def model_text(conv, history):
         async for text in stream.text_stream:
             yield text
         final = await stream.get_final_message()
+    llm.record(llm.model("live"), final.usage)
     if final.stop_reason == "refusal":
         raise ModelRefused()
 
@@ -97,22 +99,40 @@ async def agent_turn_stream(conv_id, incoming_text):
 
     # 2. Live model, streamed sentence by sentence through the outbound checks.
     history = await db.get_history(conv_id)        # counterpart -> "user", agent -> "assistant"
-    spoken, buffer = [], ""
+    spoken, buffer, self_reveal = [], "", False
     try:
         try:
             async for text in model_text(conv, history):
                 buffer += text
                 parts = SENTENCE_END.split(buffer)
                 for sentence in parts[:-1]:
+                    if guards.reveals_drill(conv, sentence):
+                        self_reveal = True
+                        break
                     safe = guards.check_outbound(conv, sentence)
                     spoken.append(safe)
                     yield safe
+                if self_reveal:
+                    break
                 buffer = parts[-1]
         except ModelRefused:
             buffer = ""
         except Exception as error:                  # API or network failure: stay in character
             llm.log("live model failed:", repr(error))
             buffer = ""
+        if not self_reveal and buffer.strip() and guards.reveals_drill(conv, buffer.strip()):
+            self_reveal = True
+        if self_reveal:
+            # The model tried to end the drill itself. The server takes over: what was already
+            # said is stored first, then the fixed reveal and lesson follow.
+            said, spoken = " ".join(spoken), []
+            if said:
+                await db.add_message(conv_id, "agent", said)
+                await publish(conv_id, {"type": "message", "speaker": "agent", "text": said})
+            await publish(conv_id, {"type": "guard", "event": "self_reveal"})
+            async for sentence in reveal_and_teach(conv, "hesitated"):
+                yield sentence
+            return
         if buffer.strip():
             safe = guards.check_outbound(conv, buffer.strip())
             spoken.append(safe)
@@ -182,6 +202,7 @@ async def classify_commit(conv, masked_text):
     """The one model call allowed before a reply. Runs only after the commit question."""
     if not llm.enabled():
         return "continuing"
+    llm.trace(masked_text)
     try:
         message = await llm.client().messages.create(
             model=llm.model("live"),
@@ -195,6 +216,7 @@ async def classify_commit(conv, masked_text):
     except Exception as error:
         llm.log("commit classifier failed:", repr(error))
         return "continuing"
+    llm.record(llm.model("live"), message.usage)
     word = next((b.text for b in message.content if b.type == "text"), "").strip().lower()
     return {"will_comply": "would_comply", "resisting": "resisted"}.get(word, "continuing")
 
