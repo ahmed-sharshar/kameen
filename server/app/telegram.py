@@ -7,6 +7,7 @@ At an unannounced moment inside the organiser's window the bot sends one simulat
 The drill then runs like any other: it stops before anything real is shared, reveals itself and
 teaches the lesson. A person who agreed is never sent to the decoy, and /leave withdraws at once.
 """
+import hashlib
 import os
 import random
 import re
@@ -61,6 +62,13 @@ def configured():
     return os.environ.get("TELEGRAM_BOT_TOKEN", "unset") not in ("", "unset")
 
 
+def webhook_secret():
+    """What Telegram must send with every update. Telegram accepts only letters, digits, "_" and "-",
+    and a generated secret may hold other characters, so its hash is used instead."""
+    secret = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+    return hashlib.sha256(secret.encode()).hexdigest() if secret else ""
+
+
 async def call(method, payload):
     """One Telegram Bot API call. Returns the result, or None. The token never reaches a log line."""
     if not configured():
@@ -91,7 +99,7 @@ async def setup():
         return
     BOT["username"] = me.get("username")
     base = (os.environ.get("PUBLIC_URL") or os.environ.get("RENDER_EXTERNAL_URL") or "").rstrip("/")
-    secret = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+    secret = webhook_secret()
     if base and secret:
         done = await call("setWebhook", {"url": base + "/telegram/webhook", "secret_token": secret,
                                          "allowed_updates": ["message"]})

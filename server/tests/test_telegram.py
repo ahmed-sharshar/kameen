@@ -156,9 +156,13 @@ def test_arabic_invite_speaks_arabic_throughout(client, code, outbox):
     assert outbox[-2][1].startswith("هذا كان تمرين توعوي من كمين") and outbox[-1][1] == telegram.TEXT["ar"]["left"]
 
 
-def test_webhook_needs_telegrams_secret(client, monkeypatch):
-    update_body = {"message": {"chat": {"id": 1}, "text": "hi"}}
+def test_webhook_needs_telegrams_secret(client, monkeypatch, outbox):
+    update_body = {"message": {"chat": {"id": next(chats)}, "text": "/start"}}
     assert client.post("/telegram/webhook", json=update_body).status_code == 401
-    monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", "hook-secret")
-    assert client.post("/telegram/webhook", json=update_body,
-                       headers={"X-Telegram-Bot-Api-Secret-Token": "wrong"}).status_code == 401
+    monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", "a generated secret with +/= in it")
+    header = "X-Telegram-Bot-Api-Secret-Token"
+    assert client.post("/telegram/webhook", json=update_body, headers={header: "wrong"}).status_code == 401
+    secret = telegram.webhook_secret()
+    assert secret and all(ch.isalnum() for ch in secret)           # only characters Telegram accepts
+    assert client.post("/telegram/webhook", json=update_body, headers={header: secret}).status_code == 200
+    assert outbox[-1][1] == telegram.DECOY_INTRO

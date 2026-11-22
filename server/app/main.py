@@ -338,7 +338,7 @@ async def new_invite(body: dict):
 
 @app.post("/telegram/webhook")
 async def telegram_webhook(request: Request, x_telegram_bot_api_secret_token: str = Header(None)):
-    secret = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+    secret = telegram.webhook_secret()
     if not secret or not hmac.compare_digest(x_telegram_bot_api_secret_token or "", secret):
         raise HTTPException(401)
     await telegram.handle(await request.json())
