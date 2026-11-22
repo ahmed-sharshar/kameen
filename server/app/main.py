@@ -216,11 +216,13 @@ def find_conversation_id(body):
 @app.post("/v1/chat/completions")
 @app.post("/chat/completions")
 async def completions(request: Request, authorization: str = Header(None)):
-    secret = os.environ.get("LLM_SHARED_SECRET", "")
-    if not secret or not hmac.compare_digest(authorization or "", f"Bearer {secret}"):
-        # Names only, never values: this shows which header ElevenLabs uses for the secret.
-        llm.log("voice request refused on", request.url.path, "| headers:",
-                sorted(h for h in request.headers.keys() if h.startswith(("auth", "x-", "xi-", "api"))))
+    secret = os.environ.get("LLM_SHARED_SECRET", "").strip()
+    scheme, _, token = (authorization or "").partition(" ")
+    token = token.strip()                      # a pasted secret often carries a stray newline
+    if not secret or scheme.lower() != "bearer" or not hmac.compare_digest(token, secret):
+        # Shapes only, never values: enough to tell a wrong secret from a wrong header.
+        llm.log("voice request refused on", request.url.path, "| scheme:", scheme or "(none)",
+                "| token length:", len(token), "| expected length:", len(secret))
         raise HTTPException(401)
     body = await request.json()
     llm.log("voice request on", request.url.path, "| body keys:", sorted(body.keys()),
