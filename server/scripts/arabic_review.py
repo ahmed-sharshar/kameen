@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app import agent, cards, guards, telegram   # noqa: E402
+from app import agent, cards, guards, phish, telegram   # noqa: E402
 
 rows = []          # (section, id, where it is used, English meaning, Arabic)
 counters = {}
@@ -117,6 +117,15 @@ for key, where in [("consent", "Shown when a person opens the invite link. {grou
 add(F, "F", "The word that counts as agreement (please list other natural ways to say it)", "AGREE", "أوافق  ·  اوافق  ·  موافق")
 add(F, "F", "How the window is written: minutes, hours, days", "10 minutes  ·  3 hours  ·  3 days",
     "  ·  ".join(tg_ar["units"][unit].format(n=n) for unit, n in (("minutes", 10), ("hours", 3), ("days", 3))))
+
+# ---- G. Phishing-awareness emails and the page the link lands on ----------------------------
+G = "G. Phishing-awareness emails and the training page the link opens"
+add(G, "G", "Greeting line at the top of the email", phish.GREETING["en"], phish.GREETING["ar"])
+add(G, "G", "Urgency line under the scam message", phish.FOLLOW["en"], phish.FOLLOW["ar"])
+add(G, "G", "The button people click in the email", phish.CTA["en"], phish.CTA["ar"])
+add(G, "G", "The badge at the top of the training page", phish.SAFE_NOTE["en"], phish.SAFE_NOTE["ar"])
+add(G, "G", "Reassurance line on the training page", phish.REVEAL_SAFE["en"], phish.REVEAL_SAFE["ar"])
+add(G, "G", "How the person is greeted on the training page", "Hello <name>,", "مرحباً <الاسم>،")
 
 assert all(word in guards.SELF_REVEAL.pattern for word in ("كمين", "تمرين", "محاكاة"))   # the page matches the code
 

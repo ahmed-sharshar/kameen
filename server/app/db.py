@@ -150,6 +150,33 @@ class ScheduledDrill(Base):
     conversation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
 
+class PhishCampaign(Base):
+    """One security-awareness email campaign an organiser runs against a group they authorise."""
+    __tablename__ = "phish_campaigns"
+    code: Mapped[str] = mapped_column(String(16), primary_key=True)
+    group_name: Mapped[str] = mapped_column(String(80))
+    scenario_id: Mapped[str | None] = mapped_column(String(64), nullable=True)   # None: a different one per person
+    language: Mapped[str] = mapped_column(String(8), default="en")
+    authorised_by: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[float] = mapped_column(Float)
+
+
+class PhishTarget(Base):
+    """One recipient of a simulated phishing email. The token is the only thing the link carries."""
+    __tablename__ = "phish_targets"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    campaign_code: Mapped[str] = mapped_column(String(16), index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    email: Mapped[str] = mapped_column(String(200))
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    scenario_id: Mapped[str] = mapped_column(String(64))
+    language: Mapped[str] = mapped_column(String(8), default="en")
+    status: Mapped[str] = mapped_column(String(12), default="queued")   # queued, sent, failed, clicked
+    error: Mapped[str] = mapped_column(String(200), default="")
+    sent_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    clicked_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
 class KeyValue(Base):
     __tablename__ = "kv"
     key: Mapped[str] = mapped_column(String(40), primary_key=True)
@@ -442,6 +469,72 @@ async def withdraw(handle):
                         .values(status="cancelled"))
         await s.commit()
     return ended
+
+
+# ---- phishing-awareness email campaigns ------------------------------------
+
+async def add_campaign(code, group_name, scenario_id, language, authorised_by, recipients):
+    """One campaign and its queued recipients. `recipients` is a list of (name, email, token, scenario_id)."""
+    async with Session() as s:
+        s.add(PhishCampaign(code=code, group_name=group_name[:80], scenario_id=scenario_id, language=language,
+                            authorised_by=authorised_by[:120], created_at=time.time()))
+        for name, email, token, scn in recipients:
+            s.add(PhishTarget(campaign_code=code, name=name[:80], email=email[:200], token=token,
+                              scenario_id=scn, language=language))
+        await s.commit()
+
+
+async def queued_targets():
+    async with Session() as s:
+        rows = (await s.execute(select(PhishTarget).where(PhishTarget.status == "queued"))).scalars().all()
+    return [SimpleNamespace(id=r.id, name=r.name, email=r.email, token=r.token, scenario_id=r.scenario_id,
+                            language=r.language) for r in rows]
+
+
+async def mark_target(target_id, status, error=""):
+    values = {"status": status, "error": error[:200]}
+    if status == "sent":
+        values["sent_at"] = time.time()
+    async with Session() as s:
+        await s.execute(update(PhishTarget).where(PhishTarget.id == target_id).values(**values))
+        await s.commit()
+
+
+async def record_click(token):
+    """Marks the first click on a token and returns the target, or None for an unknown token."""
+    async with Session() as s:
+        row = (await s.execute(select(PhishTarget).where(PhishTarget.token == token))).scalars().first()
+        if row is None:
+            return None
+        if row.clicked_at is None:
+            row.clicked_at = time.time()
+            if row.status != "failed":
+                row.status = "clicked"
+            await s.commit()
+        return SimpleNamespace(scenario_id=row.scenario_id, language=row.language, name=row.name)
+
+
+async def list_campaigns():
+    """Every campaign with its recipients: who was sent to, and who clicked. Behind the access code."""
+    async with Session() as s:
+        campaigns = (await s.execute(select(PhishCampaign).order_by(PhishCampaign.created_at.desc()))).scalars().all()
+        targets = (await s.execute(select(PhishTarget))).scalars().all()
+    by_code = {}
+    for t in targets:
+        by_code.setdefault(t.campaign_code, []).append(t)
+    rows = []
+    for c in campaigns:
+        mine = sorted(by_code.get(c.code, []), key=lambda t: (t.clicked_at is None, t.name.lower()))
+        rows.append({
+            "code": c.code, "group_name": c.group_name, "scenario_id": c.scenario_id, "language": c.language,
+            "authorised_by": c.authorised_by, "created_at": c.created_at, "recipients": len(mine),
+            "sent": sum(t.status in ("sent", "clicked") for t in mine),
+            "failed": sum(t.status == "failed" for t in mine),
+            "clicked": sum(t.clicked_at is not None for t in mine),
+            "people": [{"name": t.name, "email": t.email, "status": t.status,
+                        "sent_at": t.sent_at, "clicked_at": t.clicked_at, "error": t.error} for t in mine],
+        })
+    return rows
 
 
 # ---- surprise drills -------------------------------------------------------

@@ -15,6 +15,9 @@ os.environ["ELEVENLABS_AGENT_EN_IN"] = "agent_for_tests"      # Rajesh's voice
 os.environ["ELEVENLABS_AGENT_EN"] = "agent_en_for_tests"      # Sara's voice and English drills
 os.environ["ELEVENLABS_AGENT_AR"] = "unset"                   # the Arabic agent stays unconfigured
 os.environ["ELEVENLABS_API_KEY"] = "unset"
+os.environ["RESEND_API_KEY"] = "test-resend-key"            # phish.configured() is True; no real send in tests
+os.environ["MAIL_FROM_ADDRESS"] = "drills@kameen.test"
+os.environ["PUBLIC_URL"] = "https://kameen.test"
 os.environ.pop("VOICE_REQUIRE_SECRET", None)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 

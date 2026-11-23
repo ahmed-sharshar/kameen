@@ -93,6 +93,18 @@ Set `TELEGRAM_BOT_TOKEN` (from @BotFather) and restart. At start-up the server a
 
 The server sends due drills once a minute, so it has to be running at that moment. On a host that sleeps when idle, a drill that came due during sleep is sent as soon as the server next wakes.
 
+## Phishing-awareness emails
+
+Set `RESEND_API_KEY` (from [resend.com](https://resend.com)) and restart. On the dashboard's Drills tab an organiser enters a group, a scenario, a language and a list of recipients, and attests that those people agreed to be tested. Kameen sends each one a simulated scam email built from an approved scenario card.
+
+What the feature never does, by design:
+
+- The email asks for nothing and the landing page has **no form**. The only thing recorded is whether the person clicked the link.
+- It never imitates a real bank, company, government body or person. The sender name is a generic role from the card ("Refunds Office"), the sending address is yours, and the link is plainly on Kameen's own domain — the giveaway a careful reader is meant to catch.
+- Clicking the link (`/t/<token>`) records the click once and immediately shows the person that it was a drill and what to watch for.
+
+The dashboard lists, per campaign, who was emailed and who clicked. `MAIL_FROM_ADDRESS` sets the sending address (default `onboarding@resend.dev`, which Resend only delivers to the account owner until you verify a domain). The link host comes from `PUBLIC_URL` or `RENDER_EXTERNAL_URL`. Note that some email security scanners open links automatically, which can register as a click.
+
 ## Sessions that go quiet
 
 Once a minute the server closes sessions nobody is in any more: a drill after 15 minutes without a message, a decoy session after two hours. A drill closed this way still gets the reveal and the lesson on its record, with the outcome `stopped`. Leaving the drill page does the same at once.

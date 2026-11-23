@@ -245,6 +245,13 @@ h3 { font-size: 0.95rem; font-weight: 600; line-height: 1.3; }
 .surprise-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.9rem; align-items: end; }
 #surprise .table-wrap { overflow-x: auto; }
 #surprise .table { min-width: 46rem; }
+.surprise-form textarea.input { min-height: 4.5rem; resize: vertical; }
+#phish .table-wrap { overflow-x: auto; }
+#phish .table { min-width: 34rem; }
+.campaign { border: 1px solid var(--line); border-radius: var(--radius-m); padding: 0.9rem 1rem 1rem; background: var(--surface); }
+.campaign + .campaign { margin-top: 1rem; }
+.campaign-head { display: flex; flex-wrap: wrap; gap: 0.6rem 0.9rem; align-items: center; margin-bottom: 0.7rem; }
+.campaign .table tr[data-clicked] td { background: var(--red-wash); }
 .field select {
   width: 100%; min-height: 2.75rem; padding: 0.5rem 0.7rem; font: inherit; color: var(--ink);
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-s);

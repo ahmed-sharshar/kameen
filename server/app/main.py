@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-from . import agent, campaigns, cards, db, evidence, llm, seed, sessions, telegram, voice
+from . import agent, campaigns, cards, db, evidence, llm, phish, seed, sessions, telegram, voice
 from .director import make_playbook
 from .events import publish, subscribe
 
@@ -39,7 +39,7 @@ async def lifespan(_app):
 async def every_minute():
     """The server's clock: send surprise drills that are due, close sessions that have gone quiet."""
     while True:
-        for job in (telegram.send_due, telegram.close_unanswered, agent.close_idle):
+        for job in (telegram.send_due, telegram.close_unanswered, agent.close_idle, phish.send_queued):
             try:
                 await job()
             except Exception as error:
@@ -334,6 +334,51 @@ async def new_invite(body: dict):
             raise HTTPException(400, "That scenario is not approved in that language.")
     code = await telegram.new_invite(group, scenario_id, language, window)
     return {"code": code, "link": telegram.link(code)}
+
+
+@app.get("/phish", dependencies=[Depends(require_code)])
+async def list_phish():
+    """Email awareness campaigns, with who was emailed and who clicked. Behind the access code."""
+    campaigns = await db.list_campaigns()
+    for campaign in campaigns:
+        campaign["scenario"] = (cards.scenario(campaign["scenario_id"] or "") or {}).get("title",
+                                                                                         "A different one each")
+    return {"email": phish.configured(), "sender": phish.sender_address() if phish.configured() else None,
+            "campaigns": campaigns}
+
+
+@app.post("/phish", dependencies=[Depends(require_code)])
+async def new_phish(body: dict):
+    """Starts a campaign. The organiser must attest they are authorised to test these people."""
+    group = str(body.get("group_name", "")).strip()
+    language = body.get("language") if body.get("language") in ("en", "ar") else "en"
+    scenario_id = body.get("scenario_id") or None
+    authorised_by = str(body.get("authorised_by", "")).strip()
+    recipients = body.get("recipients") if isinstance(body.get("recipients"), list) else []
+    if not group:
+        raise HTTPException(400, "A group name is needed.")
+    if not body.get("attest"):
+        raise HTTPException(400, "You must confirm these people agreed to receive awareness tests.")
+    if not phish.configured():
+        raise HTTPException(503, "Email sending is not set up. Add a Resend API key on the server.")
+    if scenario_id:
+        card = cards.scenario(scenario_id, language)
+        if card is None or card["language"] != language or not card.get("approved_by"):
+            raise HTTPException(400, "That scenario is not approved in that language.")
+    try:
+        code, queued, skipped = await phish.start_campaign(group, scenario_id, language, authorised_by, recipients)
+    except ValueError as reason:
+        raise HTTPException(400, str(reason))
+    return {"code": code, "queued": queued, "skipped": skipped}
+
+
+# A click comes straight from an email, so this page carries no header: the token is the unguessable key.
+@app.get("/t/{token}", response_class=HTMLResponse)
+async def phish_click(token: str):
+    target = await db.record_click(token)
+    if target is None:
+        raise HTTPException(404, "This link is not valid.")
+    return phish.reveal_page(target.scenario_id, target.language, target.name)
 
 
 @app.post("/telegram/webhook")

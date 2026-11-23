@@ -46,6 +46,10 @@ services:
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
         generateValue: true
+      - key: RESEND_API_KEY           # phishing-awareness emails; leave unset to keep the feature off
+        sync: false
+      - key: MAIL_FROM_ADDRESS
+        value: onboarding@resend.dev
       - key: LIVE_MODEL
         value: claude-haiku-5-5
       - key: DIRECTOR_MODEL
