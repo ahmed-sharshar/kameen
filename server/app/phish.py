@@ -29,10 +29,26 @@ MAX_RECIPIENTS = 200
 _sending = asyncio.Lock()        # one sender at a time: the clock must not overlap a running batch
 
 # Draft Arabic lines: a native Emirati speaker must review them before Arabic campaigns are used for real.
-CTA = {"en": "Open", "ar": "فتح"}
-GREETING = {"en": "Dear customer,", "ar": "عزيزي العميل،"}
-FOLLOW = {"en": "Please act on this today to avoid any interruption to your account or service.",
-          "ar": "الرجاء التصرف اليوم لتفادي أي توقف في حسابك أو خدمتك."}
+CTA = {"en": "Review the details", "ar": "مراجعة التفاصيل"}
+GREETING = {"en": "Dear {name},", "ar": "عزيزي {name}،"}
+GREETING_PLAIN = {"en": "Dear customer,", "ar": "عزيزي العميل،"}
+FOLLOW = {"en": "Please review this today to avoid any interruption to your account or service.",
+          "ar": "الرجاء مراجعة هذا اليوم لتفادي أي توقف في حسابك أو خدمتك."}
+BUTTON_HELP = {"en": "If the button does not work, copy and paste this address into your browser:",
+               "ar": "إذا ما اشتغل الزر، انسخ هذا العنوان والصقه في المتصفح:"}
+SIGN_OFF = {"en": "Kind regards,", "ar": "مع خالص التقدير،"}
+SUPPORT_LINE = {"en": "Customer Support", "ar": "خدمة العملاء"}
+FOOTER_SENT = {"en": "This message was sent to {email}. Reference {ref}.",
+               "ar": "تم إرسال هذه الرسالة إلى {email}. الرقم المرجعي {ref}."}
+FOOTER_AUTO = {"en": "This is an automated message. Please do not reply to this email.",
+               "ar": "هذه رسالة آلية. الرجاء عدم الرد على هذا البريد."}
+# A generic Arabic department name per scenario, mirroring the (generic) English role. No real brand.
+SENDER_AR = {
+    "scn_bank_otp_v1": "قسم أمان البنك", "scn_traffic_fine_v1": "إدارة المرور",
+    "scn_courier_parcel_v1": "خدمة التوصيل", "scn_fake_refund_v1": "مكتب المبالغ المستردة",
+    "scn_seized_car_v1": "مبيعات المركبات", "scn_job_visa_fee_v1": "التوظيف الدولي",
+    "scn_rental_deposit_v1": "تأجير العقارات", "scn_investment_group_v1": "مجموعة الاستثمار",
+}
 SAFE_NOTE = {"en": "This was a Kameen security-awareness drill.",
              "ar": "هذا كان تمرين توعية أمنية من كمين."}
 REVEAL_SAFE = {"en": "No information was collected. The link you clicked was part of a training exercise.",
@@ -55,10 +71,21 @@ def new_token():
     return secrets.token_urlsafe(24)
 
 
-def sender_name(card):
+def sender_name(card, language="en"):
     """A generic role, never a real brand: 'a consumer protection refunds office' -> 'Consumer Protection Refunds Office'."""
+    if language == "ar":
+        return SENDER_AR.get(card["id"], "الإشعارات")
     role = re.sub(r"^(a|an|the)\s+", "", cards.scenario(card["id"])["impersonates"].strip(), flags=re.I)
     return role.title()
+
+
+def first_name(name):
+    return (name or "").strip().split()[0] if (name or "").strip() else ""
+
+
+def reference(token):
+    """A short, official-looking reference derived from the token. Synthetic, like everything else."""
+    return "KM-" + "".join(c for c in (token or "") if c.isalnum())[:8].upper()
 
 
 def _lead(card, language):
@@ -77,41 +104,76 @@ def subject(card, language):
     return first[:120] if first else cards.scenario(card["id"], language).get("title", "Notice")
 
 
-def email_html(card, language, link):
-    """A plain, brand-free HTML email. The one link is the tracking link."""
+def _greeting(language, name):
+    first = first_name(name)
+    if first:
+        return GREETING.get(language, GREETING["en"]).format(name=html.escape(first))
+    return GREETING_PLAIN.get(language, GREETING_PLAIN["en"])
+
+
+def email_html(card, language, link, name="", email="", token=""):
+    """A clean, brand-free transactional-looking email. The one clickable link is the tracking link."""
     rtl = language == "ar"
+    side = "right" if rtl else "left"
+    sender = html.escape(sender_name(card, language))
+    initials = html.escape("".join(w[0] for w in sender.split()[:2]).upper() or "K")
     cta = html.escape(CTA.get(language, CTA["en"]))
-    body = "".join(f"<p style='margin:0 0 16px'>{html.escape(part)}</p>" for part in
-                   (GREETING.get(language, GREETING["en"]), _lead(card, language), FOLLOW.get(language, FOLLOW["en"])))
+    greeting = _greeting(language, name)
+    paras = "".join(f"<p style='margin:0 0 16px'>{html.escape(p)}</p>" for p in
+                    (greeting, _lead(card, language), FOLLOW.get(language, FOLLOW["en"])))
+    footer = html.escape(FOOTER_SENT.get(language, FOOTER_SENT["en"]).format(
+        email=email or "you", ref=reference(token)))
+    auto = html.escape(FOOTER_AUTO.get(language, FOOTER_AUTO["en"]))
+    help_line = html.escape(BUTTON_HELP.get(language, BUTTON_HELP["en"]))
+    sign = html.escape(SIGN_OFF.get(language, SIGN_OFF["en"]))
+    support = html.escape(SUPPORT_LINE.get(language, SUPPORT_LINE["en"]))
     return f"""<!doctype html><html lang="{language}" dir="{'rtl' if rtl else 'ltr'}"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;background:#f2f4f7;font:16px/1.6 -apple-system,'Segoe UI',Tahoma,Arial,sans-serif;color:#1b2733">
-<div style="max-width:560px;margin:0 auto;padding:24px">
-  <div style="background:#0b5c66;color:#fff;padding:14px 20px;border-radius:10px 10px 0 0;font-weight:600">
-    {html.escape(sender_name(card))}
-  </div>
-  <div style="background:#fff;padding:22px 20px;border:1px solid #e2e8ee;border-top:none;border-radius:0 0 10px 10px">
-    {body}
-    <p style="margin:24px 0 8px;text-align:{'right' if rtl else 'left'}">
-      <a href="{html.escape(link)}" style="display:inline-block;background:#0b5c66;color:#fff;text-decoration:none;
-        padding:12px 26px;border-radius:8px;font-weight:600">{cta}</a>
-    </p>
-  </div>
-</div></body></html>"""
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>{sender}</title></head>
+<body style="margin:0;background:#eef1f4;padding:24px 0;font:16px/1.65 -apple-system,'Segoe UI',Roboto,Tahoma,Arial,sans-serif;color:#1d2a35;text-align:{side}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto">
+<tr><td style="background:#0b5c66;padding:18px 24px;border-radius:12px 12px 0 0">
+  <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+    <td style="width:40px"><div style="width:40px;height:40px;background:#ffffff22;border:1px solid #ffffff55;border-radius:50%;color:#fff;font-weight:600;text-align:center;line-height:40px">{initials}</div></td>
+    <td style="padding:0 12px;color:#fff;font-size:17px;font-weight:600">{sender}</td>
+  </tr></table>
+</td></tr>
+<tr><td style="background:#fff;padding:26px 24px;border:1px solid #e2e8ee;border-top:none">
+  {paras}
+  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0"><tr><td style="border-radius:8px;background:#0b5c66">
+    <a href="{html.escape(link)}" style="display:inline-block;padding:13px 30px;color:#fff;text-decoration:none;font-weight:600;font-size:16px">{cta}</a>
+  </td></tr></table>
+  <p style="margin:0 0 4px;font-size:13px;color:#6b7a88">{help_line}</p>
+  <p style="margin:0 0 20px;font-size:13px;color:#6b7a88;word-break:break-all"><a href="{html.escape(link)}" style="color:#0b5c66;text-decoration:none">{html.escape(link)}</a></p>
+  <p style="margin:0">{sign}</p>
+  <p style="margin:2px 0 0;color:#5a6b7a">{sender} &middot; {support}</p>
+</td></tr>
+<tr><td style="padding:16px 24px;background:#f6f8fa;border:1px solid #e2e8ee;border-top:none;border-radius:0 0 12px 12px;font-size:12px;color:#8795a2;line-height:1.6">
+  <p style="margin:0 0 4px">{auto}</p>
+  <p style="margin:0">{footer}</p>
+</td></tr>
+</table></body></html>"""
 
 
-def email_text(card, language, link):
-    return "\n\n".join([GREETING.get(language, GREETING["en"]), _lead(card, language),
-                        FOLLOW.get(language, FOLLOW["en"]), CTA.get(language, CTA["en"]) + ": " + link])
+def email_text(card, language, link, name="", email="", token=""):
+    return "\n\n".join([
+        _greeting(language, name), _lead(card, language), FOLLOW.get(language, FOLLOW["en"]),
+        CTA.get(language, CTA["en"]) + ": " + link,
+        SIGN_OFF.get(language, SIGN_OFF["en"]) + " " + sender_name(card, language),
+        FOOTER_SENT.get(language, FOOTER_SENT["en"]).format(email=email or "you", ref=reference(token))])
 
 
 async def send_one(target):
     """Sends one email through Resend. Returns (ok, error)."""
     card = cards.scenario(target.scenario_id, target.language)
     link = base_url() + "/t/" + target.token
-    payload = {"from": f"{sender_name(card)} <{sender_address()}>", "to": [target.email],
-               "subject": subject(card, target.language),
-               "html": email_html(card, target.language, link), "text": email_text(card, target.language, link)}
+    payload = {
+        "from": f"{sender_name(card, target.language)} <{sender_address()}>", "to": [target.email],
+        "reply_to": sender_address(), "subject": subject(card, target.language),
+        "html": email_html(card, target.language, link, target.name, target.email, target.token),
+        "text": email_text(card, target.language, link, target.name, target.email, target.token),
+        # Standard header for authorised bulk mail; helps deliverability and is good practice.
+        "headers": {"List-Unsubscribe": f"<mailto:{sender_address()}?subject=unsubscribe>"},
+    }
     try:
         async with httpx.AsyncClient(timeout=20) as http:
             reply = await http.post("https://api.resend.com/emails", json=payload,

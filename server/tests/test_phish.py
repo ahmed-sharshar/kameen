@@ -18,8 +18,10 @@ def mailbox(monkeypatch):
         card = cards.scenario(target.scenario_id, target.language)
         link = phish.base_url() + "/t/" + target.token
         sent.append({"to": target.email, "name": target.name, "language": target.language,
-                     "from_name": phish.sender_name(card), "subject": phish.subject(card, target.language),
-                     "html": phish.email_html(card, target.language, link), "link": link})
+                     "from_name": phish.sender_name(card, target.language),
+                     "subject": phish.subject(card, target.language),
+                     "html": phish.email_html(card, target.language, link, target.name, target.email, target.token),
+                     "link": link})
         return True, ""
     monkeypatch.setattr(phish, "send_one", fake_send_one)
     return sent
@@ -51,14 +53,23 @@ def test_a_campaign_sends_one_email_to_each_recipient(client, code, mailbox):
     assert first["subject"] and "<" not in first["subject"]
 
 
-def test_the_email_has_one_link_and_no_request_for_a_secret(client, code, mailbox):
-    make_campaign(client, code, recipients=[{"name": "Lee", "email": "lee@example.com"}])
+def test_every_link_in_the_email_is_the_tracking_link_and_no_secret_is_asked(client, code, mailbox):
+    make_campaign(client, code, recipients=[{"name": "Lee Park", "email": "lee@example.com"}])
     flush(client)
     body = mailbox[0]["html"]
-    links = re.findall(r'href="([^"]+)"', body)
-    assert links == [mailbox[0]["link"]]                                 # exactly one link: the tracking link
+    links = set(re.findall(r'href="([^"]+)"', body))
+    assert links == {mailbox[0]["link"]}                                 # every link goes only to Kameen's tracker
     assert mailbox[0]["link"].startswith("https://kameen.test/t/")       # plainly Kameen's own address
     assert not re.search(r"password|one-time code|card number|cvv|<input|<form", body, re.I)
+
+
+def test_the_email_is_personalised_and_looks_like_a_real_message(client, code, mailbox):
+    make_campaign(client, code, recipients=[{"name": "Lee Park", "email": "lee@example.com"}])
+    flush(client)
+    body = mailbox[0]["html"]
+    assert "Dear Lee," in body                                           # first name only
+    assert "lee@example.com" in body and "Reference KM-" in body         # a footer like a real notice
+    assert "Kind regards," in body and "do not reply" in body.lower()
 
 
 def test_clicking_the_link_records_it_and_reveals_the_drill(client, code, mailbox):

@@ -120,9 +120,18 @@ add(F, "F", "How the window is written: minutes, hours, days", "10 minutes  ·  
 
 # ---- G. Phishing-awareness emails and the page the link lands on ----------------------------
 G = "G. Phishing-awareness emails and the training page the link opens"
-add(G, "G", "Greeting line at the top of the email", phish.GREETING["en"], phish.GREETING["ar"])
+add(G, "G", "Greeting when the recipient's name is known ({name} is filled in)", phish.GREETING["en"], phish.GREETING["ar"])
+add(G, "G", "Greeting when no name is known", phish.GREETING_PLAIN["en"], phish.GREETING_PLAIN["ar"])
 add(G, "G", "Urgency line under the scam message", phish.FOLLOW["en"], phish.FOLLOW["ar"])
 add(G, "G", "The button people click in the email", phish.CTA["en"], phish.CTA["ar"])
+add(G, "G", "Line above the plain link, in case the button fails", phish.BUTTON_HELP["en"], phish.BUTTON_HELP["ar"])
+add(G, "G", "Sign-off before the sender name", phish.SIGN_OFF["en"], phish.SIGN_OFF["ar"])
+add(G, "G", "Department line under the sign-off", phish.SUPPORT_LINE["en"], phish.SUPPORT_LINE["ar"])
+add(G, "G", "Footer: do-not-reply note", phish.FOOTER_AUTO["en"], phish.FOOTER_AUTO["ar"])
+add(G, "G", "Footer: who it was sent to and the reference ({email}, {ref} filled in)", phish.FOOTER_SENT["en"], phish.FOOTER_SENT["ar"])
+for card_id, name_ar in phish.SENDER_AR.items():
+    title = (cards.scenario(card_id) or {}).get("title", card_id)
+    add(G, "G", f"Sender name on the email for: {title}", phish.sender_name(cards.scenario(card_id), "en"), name_ar)
 add(G, "G", "The badge at the top of the training page", phish.SAFE_NOTE["en"], phish.SAFE_NOTE["ar"])
 add(G, "G", "Reassurance line on the training page", phish.REVEAL_SAFE["en"], phish.REVEAL_SAFE["ar"])
 add(G, "G", "How the person is greeted on the training page", "Hello <name>,", "مرحباً <الاسم>،")
