@@ -44,7 +44,7 @@
               <!-- no name attribute on purpose: the code must never end up in a URL, even if scripts fail -->
               <input type="password" id="code" autocomplete="off" autocapitalize="off" spellcheck="false" required>
             </label>
-            <button type="submit" class="btn btn-primary" id="code-btn" disabled>Unlock</button>
+            <button type="submit" class="btn btn-primary" id="code-btn">Unlock</button>
           </form>
           <p class="note" id="code-error" role="alert" hidden></p>
         </section>
@@ -129,11 +129,17 @@
       var errorEl = $('#code-error');
       var ready = false;
       var busy = false;
+      var waiting = false;    /* a code was entered while the server was still waking up */
 
       var REJECTED = 'That code was not accepted. Check it and try again.';
 
       function refresh() {
-        button.disabled = !ready || busy;
+        button.disabled = busy;
+      }
+
+      /* The code is often pasted from a note: drop spaces, quotes and backticks that came along with it. */
+      function cleaned(value) {
+        return String(value).replace(/[\s`'"\u2018\u2019\u201C\u201D]/g, '');
       }
 
       function showModes(on) {
@@ -141,15 +147,26 @@
         gate.hidden = on;
       }
 
-      form.addEventListener('submit', async function (event) {
+      form.addEventListener('submit', function (event) {
         event.preventDefault();
-        if (!ready || busy) return;
-        var code = input.value.trim();
+        check();
+      });
+
+      async function check() {
+        if (busy) return;
+        var code = cleaned(input.value);
         if (!code) {
           note(errorEl, 'Enter the access code.', 'error');
           input.focus();
           return;
         }
+        if (!ready) {
+          /* Never ignore the button: say what is happening and check the code as soon as the server answers. */
+          waiting = true;
+          note(errorEl, 'Kameen is still waking up, which can take a minute. Your code will be checked as soon as it is ready.', 'info');
+          return;
+        }
+        waiting = false;
         busy = true;
         refresh();
         note(errorEl, '');
@@ -166,7 +183,7 @@
           busy = false;
           refresh();
         }
-      });
+      }
 
       $('#change-code').addEventListener('click', function () {
         dropStored('code');
@@ -184,9 +201,11 @@
         ready = ok;
         refresh();
         if (!ok) {
+          waiting = false;
           note(errorEl, 'The server did not answer. Reload the page to try again.', 'error');
           return;
         }
+        if (waiting) return check();
         if (!getStored('code')) return;
         /* a code is already stored from earlier in this tab: make sure it still works */
         try {
