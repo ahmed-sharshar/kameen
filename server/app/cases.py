@@ -13,8 +13,9 @@ from datetime import datetime, timezone
 
 from . import cards, db, notify
 
-# A drill "scam" succeeds, for the purpose of opening a case, when the person was about to give a secret.
-AT_RISK = {"would_comply", "attempted_disclosure"}
+# "Fooled": the person was caught out (about to give a secret, or clicked the phishing link).
+# Everything else is "not fooled" and needs no follow-up.
+FOOLED = {"would_comply", "attempted_disclosure", "clicked"}
 
 CHANNEL_LABEL = {"voice": "Phone call", "web": "Web / SMS", "telegram": "Telegram", "email": "Email",
                  "sms": "SMS"}
@@ -31,29 +32,30 @@ def _mock_emirates_id(seed):
     return f"784-{rng.randint(1960, 2006)}-{rng.randint(1000000, 9999999)}-{rng.randint(1, 9)}"
 
 
-def simulated_sms(case_ref):
-    """The awareness notification stored on the case and shown in the UI. Branded as this project
-    (ScamShield AI), never as the police. See notify.message_text, which is also what actually sends."""
-    return notify.message_text(case_ref)
-
-
 def scam_title(scenario_id):
     return (cards.scenario(scenario_id or "") or {}).get("title", scenario_id or "Unknown scam")
 
 
 async def _open(person, email, phone, channel, scenario_id, outcome, source, group_name):
+    """Opens a case for ANY drill or click. A 'fooled' case is emailed automatically to the awareness
+    team; a 'not fooled' case is recorded and needs no action."""
     seq = await db.count_cases() + 1
     ref = _case_ref(seq)
-    return await db.add_case(
-        case_ref=ref, person=person, email=email, phone=phone, channel=channel,
-        scam_type=scam_title(scenario_id), scenario_id=scenario_id, outcome=outcome, source=source,
-        group_name=group_name, emirates_id=_mock_emirates_id(ref), sms_text=simulated_sms(ref))
+    fooled = outcome in FOOLED
+    case = {"case_ref": ref, "person": person, "email": email, "phone": phone, "channel": channel,
+            "scam_type": scam_title(scenario_id), "scenario_id": scenario_id, "outcome": outcome,
+            "source": source, "group_name": group_name, "emirates_id": _mock_emirates_id(ref)}
+    await db.add_case(sms_text="", **case)
+    if not fooled:
+        await db.set_case_status(ref, "No action")
+        return ref
+    ok, _error = await notify.send_case_email(case)
+    await db.set_case_status(ref, "Emailed" if ok else "Open")
+    return ref
 
 
 async def open_from_drill(conv, outcome):
-    """Called after a drill is revealed. Opens a case only when the person was caught out."""
-    if outcome not in AT_RISK:
-        return None
+    """Called after every drill is revealed: opens a case for the outcome, fooled or not."""
     enrol = await db.get_enrolment(conv.enrolment_id)
     person = (enrol.person if enrol else None) or "Unknown"
     group = (enrol.group_name if enrol else "") or ""

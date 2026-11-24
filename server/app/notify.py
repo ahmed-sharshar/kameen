@@ -1,9 +1,9 @@
-"""Sends the awareness notification for a simulated case, by SMS (Twilio) or email (Resend).
+"""Emails the details of a simulated case to the awareness-team address when a person is caught out.
 
-The message is an honest, clearly-labelled note from this project's own brand (ScamShield AI). It never
-claims to be the police, a bank or any other body: that would be impersonation, the very thing the
-project fights. It is sent only to a number or address the organiser enters and attests consent for.
+Honest, clearly-labelled note from this project's own brand (ScamShield AI). It never claims to be the
+police, a bank or any other body. Email only (SMS was removed); sending reuses the existing Resend setup.
 """
+import html as _html
 import os
 
 import httpx
@@ -12,68 +12,53 @@ from . import phish
 
 
 def brand():
-    return (os.environ.get("NOTIFY_BRAND", "").strip() or "ScamShield AI")
+    return os.environ.get("NOTIFY_BRAND", "").strip() or "ScamShield AI"
 
 
-def sms_sender():
-    """A Twilio phone number (reliable), or a registered alphanumeric sender ID if one is set."""
-    return (os.environ.get("TWILIO_SMS_SENDER", "").strip()
-            or os.environ.get("TWILIO_FROM_NUMBER", "").strip())
-
-
-def sms_configured():
-    return (bool(os.environ.get("TWILIO_ACCOUNT_SID", "").strip())
-            and bool(os.environ.get("TWILIO_AUTH_TOKEN", "").strip())
-            and bool(sms_sender()))
+def alert_email():
+    """Where a 'fooled' case is emailed automatically."""
+    return os.environ.get("CASE_ALERT_EMAIL", "").strip() or "ahmed.sharshar5@gmail.com"
 
 
 def email_configured():
     return phish.configured()
 
 
-def message_text(case_ref):
-    """The awareness SMS / email body. Branded as this project, marked as a simulation."""
-    b = brand()
-    return (f"{b}: you took part in a scam-awareness exercise. In a real scam, the police would open a "
-            f"case (demo ref {case_ref}) and you would follow up on TAMM or by calling 8002626. "
-            f"This is an awareness simulation from {b}, not a real police case.")
+FIELDS = [("Case reference", "case_ref"), ("Person", "person"), ("Channel", "channel"),
+          ("Scam type", "scam_type"), ("Outcome", "outcome"), ("Group", "group_name"),
+          ("Identity (UAE Pass, simulated)", "emirates_id"), ("Contact", "contact")]
 
 
-def email_html(case_ref):
-    b = brand()
-    body = message_text(case_ref)
-    return (f'<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:auto;color:#10272c">'
-            f'<p style="font-size:1.1rem;font-weight:600">{b}</p>'
-            f'<p>{body}</p>'
-            f'<p style="color:#4a6163;font-size:0.85rem">You are receiving this because you agreed to take '
-            f'part in a security-awareness exercise. This is not a real case and no action is needed.</p></div>')
+def _contact(case):
+    return case.get("email") or case.get("phone") or "-"
 
 
-async def send_sms(to, body):
-    """One SMS through Twilio. Returns (ok, error). Costs money, so it is only ever called on request."""
-    sid = os.environ["TWILIO_ACCOUNT_SID"].strip()
-    token = os.environ["TWILIO_AUTH_TOKEN"].strip()
-    data = {"From": sms_sender(), "To": to, "Body": body}
-    try:
-        async with httpx.AsyncClient(timeout=20) as http:
-            reply = await http.post(f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json",
-                                    data=data, auth=(sid, token))
-    except Exception as error:
-        return False, type(error).__name__
-    if reply.status_code >= 300:
-        try:
-            message = reply.json().get("message", "")
-        except Exception:
-            message = ""
-        return False, f"{reply.status_code} {message}".strip()
-    return True, ""
+def case_html(case):
+    b = _html.escape(brand())
+    rows = "".join(
+        f'<tr><td style="padding:4px 14px 4px 0;color:#4a6163">{_html.escape(label)}</td>'
+        f'<td style="padding:4px 0;font-weight:600">{_html.escape(str(case.get(key) or (_contact(case) if key == "contact" else "-")))}</td></tr>'
+        for label, key in FIELDS)
+    return (f'<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:auto;color:#10272c">'
+            f'<p style="font-size:1.15rem;font-weight:600">{b} — scam-awareness case</p>'
+            f'<p>A person was caught out in a scam-awareness exercise. The case details are below. '
+            f'This is a simulation, not a real police case.</p>'
+            f'<table style="border-collapse:collapse;margin-top:8px">{rows}</table>'
+            f'<p style="color:#4a6163;font-size:0.85rem;margin-top:16px">Sent automatically by {b}. '
+            f'Not connected to TAMM, UAE Pass or the Aman service.</p></div>')
 
 
-async def send_email(to, case_ref):
-    """One awareness email through Resend. Returns (ok, error)."""
+def case_text(case):
+    lines = [f"{brand()} — scam-awareness case (simulation, not a real police case)", ""]
+    for label, key in FIELDS:
+        lines.append(f"{label}: {case.get(key) or (_contact(case) if key == 'contact' else '-')}")
+    return "\n".join(lines)
+
+
+async def send_email(to, subject, html, text):
+    """One email through Resend. Returns (ok, error)."""
     payload = {"from": f"{brand()} <{phish.sender_address()}>", "to": [to],
-               "subject": f"{brand()} — scam-awareness exercise (simulation)",
-               "html": email_html(case_ref), "text": message_text(case_ref)}
+               "subject": subject, "html": html, "text": text}
     try:
         async with httpx.AsyncClient(timeout=20) as http:
             reply = await http.post("https://api.resend.com/emails", json=payload,
@@ -89,13 +74,9 @@ async def send_email(to, case_ref):
     return True, ""
 
 
-async def notify(to, case_ref):
-    """Sends to an email address or a phone number, chosen by the shape of `to`. Returns (ok, error)."""
-    to = (to or "").strip()
-    if "@" in to:
-        if not email_configured():
-            return False, "Email sending is not set up (add a Resend key)."
-        return await send_email(to, case_ref)
-    if not sms_configured():
-        return False, "SMS sending is not set up (add Twilio credentials)."
-    return await send_sms(to, message_text(case_ref))
+async def send_case_email(case):
+    """Emails the case details to the awareness-team address. Returns (ok, error)."""
+    if not email_configured():
+        return False, "Email sending is not set up (add a Resend key)."
+    subject = f"{brand()} — case {case.get('case_ref')} ({case.get('person')})"
+    return await send_email(alert_email(), subject, case_html(case), case_text(case))

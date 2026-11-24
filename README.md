@@ -119,26 +119,24 @@ Note: the UAE regulates VoIP. Calls from a foreign carrier to UAE mobiles may be
 
 ## Simulated police case handoff (Cases tab)
 
-A **simulation only**, to show how Kameen would close the loop with the police. When a drill catches a
-person out (`would_comply` or `attempted_disclosure`) or a phishing link is clicked, Kameen opens a case
-on the dashboard's **Cases** tab, with the person, their contact, the channel they were caught on, a
-mock UAE Pass identity, and a follow-up SMS carrying a case reference.
+A **simulation only**, to show how Kameen would close the loop with the police. **Every** drill and every
+phishing click opens a case on the dashboard's **Cases** tab, labelled **Fooled** (caught out:
+`would_comply`, `attempted_disclosure` or a click) or **Not fooled** (everything else). Each case holds
+the person, their contact, the channel, a mock UAE Pass identity and the scam type.
 
-The case record itself is **not connected** to TAMM, UAE Pass or the Abu Dhabi Police Aman service, and
-Kameen is not authorised to connect it. The Emirates ID is invented and the case reference is local.
+The case record is **not connected** to TAMM, UAE Pass or the Abu Dhabi Police Aman service, and Kameen
+is not authorised to connect it. The Emirates ID is invented and the case reference is local.
 `app/cases.py` holds those mock steps — the seams where real UAE Pass OAuth and a real case API would
 slot in if it were ever authorised. The `cases` table is created automatically.
 
-The awareness **notification can be sent for real**, but safely:
+When a case is **Fooled**, its details are **emailed automatically** to `CASE_ALERT_EMAIL` (the
+awareness team). A **Not fooled** case needs no action. Safety rules on that email:
 
-- It goes out from **this project's own name** (`NOTIFY_BRAND`, default "ScamShield AI"), never as the
-  police, a bank or any other body. Impersonating any of those — even to a test number — is itself the
-  scam this project fights, so the code cannot do it.
-- It is sent only to a number or address the organiser enters and **attests consent** for, from the
-  Cases tab, one case at a time. Nothing is sent automatically.
-- SMS uses Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`; optionally
-  `TWILIO_SMS_SENDER` for a registered alphanumeric sender ID). Email reuses Resend. With neither set,
-  the message is shown in the UI but the send button is replaced by a note. See `app/notify.py`.
+- It is sent from **this project's own name** (`NOTIFY_BRAND`, default "ScamShield AI"), never as the
+  police, a bank or any other body. Impersonating any of those is the scam this project fights, so the
+  code cannot do it.
+- Email reuses Resend (`RESEND_API_KEY`); with no key set, the case is still recorded and the Cases tab
+  shows that the email was not sent. There is **no SMS** — it was removed. See `app/notify.py`.
 
 ## Sessions that go quiet
 

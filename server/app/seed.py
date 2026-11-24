@@ -15,7 +15,7 @@ from sqlalchemy import delete, select
 
 from . import canaries, cards, cases, db, extract
 
-VERSION = 4
+VERSION = 5
 NAMESPACE = uuid.UUID("6b1f6a3e-5a0e-4a53-9d0f-4b2b6f6d5c11")
 
 
@@ -134,14 +134,16 @@ PHISH_PEOPLE = [
     ("Mariam Ali", "mariam@example.com", False),
 ]
 
-# Simulated police cases, across channels, so the Cases tab has records to show. All invented: names are
-# fictional, phone numbers are made-up digits after 050, and nothing is filed anywhere real.
+# Simulated cases across channels, so the Cases tab shows both fooled and not-fooled records. All
+# invented: fictional names, made-up digits, nothing filed anywhere real.
 # (person, email, phone, channel, scenario_id, outcome, source, group, age_hours)
 SEED_CASES = [
     ("Noura A.", None, "+971505552210", "voice", "scn_bank_otp_v1", "attempted_disclosure", "drill", "Finance", 3),
     ("Sara Ahmed", "sara@example.com", None, "email", "scn_bank_otp_v1", "clicked", "phishing", "Pilot", 9),
+    ("Rashid T.", None, "+971505553391", "voice", "scn_traffic_fine_v1", "resisted", "drill", "IT", 14),
     ("Omar Yusuf", "omar@example.com", None, "email", "scn_courier_parcel_v1", "clicked", "phishing", "Pilot", 21),
     ("Faisal K.", None, None, "telegram", "scn_courier_parcel_v1", "would_comply", "drill", "Operations", 31),
+    ("Mariam S.", None, None, "web", "scn_bank_otp_v1", "hesitated", "drill", "HR", 39),
     ("Huda M.", None, "+971505558847", "voice", "scn_traffic_fine_v1", "would_comply", "drill", "Front desk", 47),
 ]
 
@@ -245,13 +247,14 @@ async def run():
                 scenario_id="scn_bank_otp_v1", language="en",
                 status="clicked" if did_click else "sent", sent_at=phish_created,
                 clicked_at=(phish_created + 3600 + index * 900) if did_click else None))
-        # Simulated police cases across channels.
+        # Simulated cases across channels, fooled (emailed) and not fooled (no action).
         for i, (person, email, phone, channel, sid, outcome, source, grp, age_h) in enumerate(SEED_CASES, start=1):
             ref = f"AMAN-SIM-DEMO-{i:04d}"
+            status = "Emailed" if outcome in cases.FOOLED else "No action"
             s.add(db.Case(case_ref=ref, person=person, email=email, phone=phone, channel=channel,
                           scam_type=cases.scam_title(sid), scenario_id=sid, outcome=outcome, source=source,
-                          group_name=grp, emirates_id=cases._mock_emirates_id(ref), status="Open",
-                          sms_text=cases.simulated_sms(ref), created_at=time.time() - age_h * 3600))
+                          group_name=grp, emirates_id=cases._mock_emirates_id(ref), status=status,
+                          sms_text="", created_at=time.time() - age_h * 3600))
         await s.commit()
     await db.put_value("seed", {"version": VERSION, "conversations": added, "drills": number})
     return added

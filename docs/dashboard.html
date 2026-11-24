@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300..700&display=swap">
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script>requireCode();</script>
@@ -284,10 +284,10 @@
       <!-- Cases (simulated police handoff) -->
       <section id="tab-cases" role="tabpanel" aria-labelledby="tabbtn-cases" hidden>
         <div class="tab-head">
-          <p>When a drill catches someone out, or a phishing link is clicked, Kameen opens a case &mdash; mirroring a handoff to Abu Dhabi Police (Aman) via TAMM, with the person's identity confirmed by UAE Pass, and a follow-up SMS carrying the case reference.</p>
+          <p>Every drill and every phishing click opens a case &mdash; mirroring a handoff to Abu Dhabi Police (Aman) via TAMM, with the person's identity confirmed by UAE Pass. Each case is labelled <strong>Fooled</strong> or <strong>Not fooled</strong>: a fooled case is emailed to the awareness team automatically; a not-fooled case needs no action.</p>
           <button type="button" class="btn btn-small" id="cases-refresh" disabled>Refresh</button>
         </div>
-        <p class="note" data-kind="info" style="margin-bottom: 1.25rem;">Simulation only &mdash; not connected to TAMM, UAE Pass or the Aman service, which Kameen is not authorised to use. Every record is synthetic and no real case is filed. The awareness message can be sent for real, but only from this project's own name (ScamShield AI) to a number or address the person consented to &mdash; never as the police, a bank or any other body.</p>
+        <p class="note" data-kind="info" style="margin-bottom: 1.25rem;">Simulation only &mdash; not connected to TAMM, UAE Pass or the Aman service, which Kameen is not authorised to use. Every record is synthetic and no real case is filed. The case email is sent from this project's own name (ScamShield AI), never as the police, a bank or any other body.</p>
         <p class="note" id="cases-error" role="alert" hidden></p>
         <div class="figures" id="cases-figures"></div>
         <div id="cases-list" class="stack" style="margin-top: 1.5rem;"></div>
@@ -1213,8 +1213,9 @@
       /* ================================================================ cases (simulated) */
 
       var CASE_CHANNEL = { voice: 'Phone call', web: 'Web / SMS', telegram: 'Telegram', email: 'Email', sms: 'SMS' };
+      var FOOLED = { would_comply: 1, attempted_disclosure: 1, clicked: 1 };
       var loadingCases = false;
-      var notifyConfig = { sms: false, email: false, brand: 'ScamShield AI' };
+      var caseAlertTo = '';
 
       function caseField(k, v) {
         return h('div', { class: 'case-field' }, [
@@ -1223,66 +1224,31 @@
         ]);
       }
 
-      /* The honest, consented notification: real SMS (Twilio) or email (Resend), from this project's
-         own name, never the police. */
-      function caseNotify(c) {
-        if (c.status === 'Notified') {
-          return h('p', { class: 'small case-sent', text: '✓ ' + notifyConfig.brand + ' message sent' });
-        }
-        if (!notifyConfig.sms && !notifyConfig.email) {
-          return h('p', { class: 'small', text: 'To send this for real, add Twilio (SMS) or Resend (email) credentials on the server.' });
-        }
-        var dest = h('input', { type: 'text', class: 'input case-dest', value: c.email || c.phone || '',
-          placeholder: 'number or email', 'aria-label': 'Send the awareness message to' });
-        var attest = h('input', { type: 'checkbox' });
-        var status = h('span', { class: 'small case-status' });
-        var btn = h('button', { type: 'button', class: 'btn btn-small', text: 'Send ' + notifyConfig.brand + ' message' });
-        btn.addEventListener('click', function () {
-          var to = dest.value.trim();
-          if (!to) { setText(status, 'Enter a number or email.'); return; }
-          if (!attest.checked) { setText(status, 'Confirm consent first.'); return; }
-          btn.disabled = true;
-          setText(status, 'Sending…');
-          api('/cases/' + encodeURIComponent(c.case_ref) + '/notify', { to: to, attest: true })
-            .then(function () { loadCases(); })
-            .catch(function (err) {
-              if (authFailed(err)) return;
-              setText(status, 'Could not send: ' + err.message);
-              btn.disabled = false;
-            });
-        });
-        return h('div', { class: 'case-notify' }, [
-          dest,
-          h('label', { class: 'check case-check' }, [attest, h('span', { text: 'consented' })]),
-          btn,
-          status
-        ]);
-      }
-
       function renderCases(data) {
         var rows = (data && data.cases) || [];
-        notifyConfig = { sms: !!(data && data.sms), email: !!(data && data.email),
-          brand: (data && data.brand) || 'ScamShield AI' };
+        caseAlertTo = (data && data.alert_to) || '';
+        var fooledCount = rows.filter(function (c) { return FOOLED[c.outcome]; }).length;
+
         var fig = $('#cases-figures');
         clearNode(fig);
         fig.appendChild(tile('Cases opened', showNumber(rows.length)));
-        var byChan = {};
-        rows.forEach(function (c) { byChan[c.channel] = (byChan[c.channel] || 0) + 1; });
-        ['voice', 'email', 'telegram', 'web'].forEach(function (ch) {
-          if (byChan[ch]) fig.appendChild(tile(CASE_CHANNEL[ch], showNumber(byChan[ch]), [h('span', { text: 'cases' })]));
-        });
+        var caught = tile('Fooled', showNumber(fooledCount), [h('span', { text: 'caught out' })]);
+        if (fooledCount > 0) caught.dataset.pass = 'false';
+        fig.appendChild(caught);
+        fig.appendChild(tile('Not fooled', showNumber(rows.length - fooledCount), [h('span', { text: 'no action' })]));
 
         var list = $('#cases-list');
         clearNode(list);
         rows.forEach(function (c) {
           var channel = CASE_CHANNEL[c.channel] || humanize(c.channel);
+          var fooled = !!FOOLED[c.outcome];
           var flagged = c.source === 'phishing'
             ? 'Clicked a phishing link'
             : 'Drill — ' + labelFor(OUTCOME_LABELS, c.outcome).toLowerCase();
           var head = h('div', { class: 'case-head' }, [
             h('strong', { text: c.case_ref }),
-            h('span', { class: 'chip', 'data-tone': 'fail', text: channel }),
-            h('span', { class: 'chip', text: c.status || 'Open' }),
+            h('span', { class: 'chip', 'data-tone': fooled ? 'fail' : 'pass', text: fooled ? 'Fooled' : 'Not fooled' }),
+            h('span', { class: 'chip', text: channel }),
             setText(h('span', { class: 'small case-when' }), formatDateTime(c.created_at))
           ]);
           var grid = h('div', { class: 'case-grid' }, [
@@ -1293,14 +1259,17 @@
             caseField('Caught on', channel),
             caseField('How it was flagged', flagged)
           ]);
-          var sms = h('div', { class: 'case-sms' }, [
-            setText(h('span', { class: 'case-k' }), 'Awareness notification (sent as ' + notifyConfig.brand + ')'),
-            setText(h('p', { class: 'case-sms-body' }), c.sms_text || ''),
-            caseNotify(c)
-          ]);
-          list.appendChild(h('div', { class: 'case-card' }, [head, grid, sms]));
+          var action;
+          if (!fooled) {
+            action = h('p', { class: 'small case-noaction', text: 'Not fooled — no further action needed.' });
+          } else if (c.status === 'Emailed') {
+            action = h('p', { class: 'small case-sent', text: '✓ Case details emailed to ' + (caseAlertTo || 'the awareness team') });
+          } else {
+            action = h('p', { class: 'small case-status', text: 'Fooled — case email not sent (set a Resend key on the server to email ' + (caseAlertTo || 'the team') + ').' });
+          }
+          list.appendChild(h('div', { class: 'case-card' }, [head, grid, action]));
         });
-        note($('#cases-empty'), rows.length ? '' : 'No cases yet. A case opens when a drill catches someone out or a phishing link is clicked.');
+        note($('#cases-empty'), rows.length ? '' : 'No cases yet. A case opens for every drill and every phishing click.');
       }
 
       async function loadCases() {

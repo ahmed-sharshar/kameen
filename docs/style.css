@@ -1049,7 +1049,8 @@ body.is-revealed { background: var(--reveal-paper); }
 .case-notify .case-dest { width: auto; flex: 1 1 13rem; min-height: 2.2rem; min-width: 0; }
 .case-check { gap: 0.4rem; font-size: 0.9rem; }
 .case-sent { color: var(--green); font-weight: 600; margin: 0.6rem 0 0; }
-.case-status { color: var(--ink-soft); }
+.case-noaction { color: var(--ink-soft); margin: 0.6rem 0 0; }
+.case-status { color: var(--ink-soft); margin: 0.6rem 0 0; }
 
 .split { display: grid; gap: 1.5rem; align-items: start; }
 .split > * { min-width: 0; }

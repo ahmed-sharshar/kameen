@@ -437,30 +437,10 @@ async def phish_click(token: str):
 
 @app.get("/cases", dependencies=[Depends(require_code)])
 async def list_cases():
-    """Simulated police cases opened from at-risk drills and phishing clicks. Behind the access code."""
+    """Simulated cases opened for every drill and phishing click. A 'fooled' case is emailed to the
+    awareness team automatically; a 'not fooled' case needs no action. Behind the access code."""
     return {"cases": await db.list_cases(), "brand": notify.brand(),
-            "sms": notify.sms_configured(), "email": notify.email_configured()}
-
-
-@app.post("/cases/{case_ref}/notify", dependencies=[Depends(require_code)])
-async def notify_case(case_ref: str, body: dict):
-    """Sends the honest, branded awareness message for a case, by SMS or email, to a consented address.
-
-    The organiser confirms consent. The message is from this project (ScamShield AI), never the police.
-    """
-    case = await db.get_case(case_ref)
-    if case is None:
-        raise HTTPException(404, "Unknown case.")
-    to = str(body.get("to", "")).strip() or (case["email"] or case["phone"] or "")
-    if not to:
-        raise HTTPException(400, "Enter a number or email to send the awareness message to.")
-    if not body.get("attest"):
-        raise HTTPException(400, "Confirm this person agreed to receive a security-awareness message.")
-    ok, error = await notify.notify(to, case_ref)
-    if not ok:
-        raise HTTPException(502, f"Could not send the message: {error}")
-    await db.mark_case_notified(case_ref)
-    return {"ok": True, "to": to, "channel": "email" if "@" in to else "sms"}
+            "email": notify.email_configured(), "alert_to": notify.alert_email()}
 
 
 @app.post("/telegram/webhook")

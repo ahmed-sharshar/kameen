@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300..700&display=swap">
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script>requireCode();</script>
@@ -193,7 +193,7 @@
         <!-- Phishing-awareness emails -->
         <div class="stack" id="phish">
           <h2 class="section-title">Phishing-awareness emails</h2>
-          <p class="small">Send a simulated scam email to people you are authorised to test. The one link in it lands on a Kameen page that records the click and immediately teaches &mdash; there is no login form and nothing is collected. The emails never imitate a real bank or company. Below you see who clicked.</p>
+          <p class="small">Send a simulated scam email to people you are authorised to test. The one link in it lands on a Kameen page that records the click and immediately teaches &mdash; there is no login form and nothing is collected. The emails never imitate a real bank or company. Who clicked shows on the dashboard.</p>
           <p class="note" id="phish-note" hidden></p>
           <form id="phish-form" class="surprise-form">
             <label class="field">
@@ -222,7 +222,6 @@
             </label>
             <button type="submit" class="btn" id="phish-send" disabled>Send awareness emails</button>
           </form>
-          <div id="phish-campaigns" class="stack"></div>
         </div>
 
         <!-- Awareness phone calls -->
@@ -790,53 +789,20 @@
         channelScenariosLoaded = true;
       }
 
-      function renderCampaigns(data) {
+      /* Only configures the send button here. The results (who clicked) live on the dashboard. */
+      function phishConfig(data) {
         data = data || {};
-        var box = $('#phish-campaigns');
-        clearNode(box);
         phishSend.disabled = !data.email;
         if (!data.email) note(phishNote, 'Email sending is not set up. Add a Resend API key on the server to send awareness emails.', 'info');
-        else if (phishNote.dataset.kind !== 'error') note(phishNote, 'Emails are sent from ' + (data.sender || 'the configured address') + '.', 'info');
-        var campaigns = data.campaigns || [];
-        if (!campaigns.length) {
-          box.appendChild(h('p', { class: 'empty', text: 'No campaigns yet.' }));
-          return;
-        }
-        campaigns.forEach(function (c) {
-          var head = h('div', { class: 'campaign-head' }, [
-            h('strong', { text: c.group_name }),
-            h('span', { class: 'small', text: c.scenario + (c.language === 'ar' ? ' (Arabic)' : '') }),
-            h('span', { class: 'chip', 'data-tone': c.clicked ? 'fail' : 'pass', text: c.clicked + ' of ' + c.recipients + ' clicked' })
-          ]);
-          var body = h('tbody');
-          (c.people || []).forEach(function (p) {
-            var clicked = p.clicked_at != null;
-            body.appendChild(h('tr', clicked ? { 'data-clicked': 'true' } : null, [
-              setText(h('td'), p.name),
-              setText(h('td'), p.email),
-              h('td', null, h('span', { class: 'chip', 'data-tone': clicked ? 'fail' : (p.status === 'failed' ? 'fail' : 'pass'), text: clicked ? 'Clicked the link' : (p.status === 'failed' ? 'Not delivered' : (p.status === 'sent' ? 'Did not click' : 'Queued')) })),
-              setText(h('td', { class: 'small' }), clicked ? timeText(p.clicked_at) : (p.status === 'failed' ? (p.error || 'failed') : ''))
-            ]));
-          });
-          box.appendChild(h('div', { class: 'campaign' }, [
-            head,
-            h('div', { class: 'table-wrap table-plain' }, h('table', { class: 'table' }, [
-              h('thead', null, h('tr', null, [
-                h('th', { scope: 'col', text: 'Name' }), h('th', { scope: 'col', text: 'Email' }),
-                h('th', { scope: 'col', text: 'Result' }), h('th', { scope: 'col', text: 'When' })
-              ])),
-              body
-            ]))
-          ]));
-        });
+        else if (phishNote.dataset.kind !== 'error') note(phishNote, 'Emails are sent from ' + (data.sender || 'the configured address') + '. Results show on the dashboard.', 'info');
       }
 
       async function loadPhish() {
         try {
-          renderCampaigns(await apiGet('/phish'));
+          phishConfig(await apiGet('/phish'));
         } catch (err) {
           if (authFailed(err)) return;
-          note(phishNote, 'Could not load campaigns: ' + err.message, 'error');
+          note(phishNote, 'Could not reach the server: ' + err.message, 'error');
         }
       }
 
@@ -861,7 +827,7 @@
           });
           $('#phish-recipients').value = '';
           $('#phish-attest').checked = false;
-          note(phishNote, 'Sending ' + res.queued + ' email' + (res.queued === 1 ? '' : 's') + (res.skipped ? ' (' + res.skipped + ' skipped)' : '') + '. Refresh in a moment to see who clicks.', 'info');
+          note(phishNote, 'Sending ' + res.queued + ' email' + (res.queued === 1 ? '' : 's') + (res.skipped ? ' (' + res.skipped + ' skipped)' : '') + '. Who clicks shows on the dashboard.', 'info');
           await loadPhish();
         } catch (err) {
           if (authFailed(err)) return;

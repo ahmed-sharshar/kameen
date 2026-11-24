@@ -569,9 +569,9 @@ async def get_case(case_ref):
             "channel": row.channel, "status": row.status, "sms_text": row.sms_text}
 
 
-async def mark_case_notified(case_ref):
+async def set_case_status(case_ref, status):
     async with Session() as s:
-        await s.execute(update(Case).where(Case.case_ref == case_ref).values(status="Notified"))
+        await s.execute(update(Case).where(Case.case_ref == case_ref).values(status=status))
         await s.commit()
 
 
