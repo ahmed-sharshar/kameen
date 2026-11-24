@@ -54,8 +54,10 @@ services:
         value: onboarding@resend.dev
       - key: NOTIFY_BRAND             # the sender name on awareness notifications (never the police)
         value: ScamShield AI
-      - key: CASE_ALERT_EMAIL         # a "fooled" case is emailed here automatically
+      - key: CASE_ALERT_EMAIL         # a fooled case from AUTO_EMAIL_NUMBER is emailed here automatically
         value: ahmed.sharshar5@gmail.com
+      - key: AUTO_EMAIL_NUMBER        # only a fooled case from this number auto-emails; others send on demand
+        value: "+971585919310"
       - key: LIVE_MODEL
         value: claude-haiku-5-5
       - key: DIRECTOR_MODEL

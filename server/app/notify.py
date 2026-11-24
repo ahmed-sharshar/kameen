@@ -16,8 +16,13 @@ def brand():
 
 
 def alert_email():
-    """Where a 'fooled' case is emailed automatically."""
+    """Where a 'fooled' case from the default number is emailed automatically."""
     return os.environ.get("CASE_ALERT_EMAIL", "").strip() or "ahmed.sharshar5@gmail.com"
+
+
+def auto_email_number():
+    """A fooled case is emailed automatically only for this number; others wait for a manual send."""
+    return os.environ.get("AUTO_EMAIL_NUMBER", "").strip() or "+971585919310"
 
 
 def email_configured():
@@ -74,9 +79,9 @@ async def send_email(to, subject, html, text):
     return True, ""
 
 
-async def send_case_email(case):
-    """Emails the case details to the awareness-team address. Returns (ok, error)."""
+async def send_case_email(case, to):
+    """Emails the case details to `to`. Returns (ok, error)."""
     if not email_configured():
         return False, "Email sending is not set up (add a Resend key)."
     subject = f"{brand()} — case {case.get('case_ref')} ({case.get('person')})"
-    return await send_email(alert_email(), subject, case_html(case), case_text(case))
+    return await send_email(to, subject, case_html(case), case_text(case))

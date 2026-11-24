@@ -437,10 +437,26 @@ async def phish_click(token: str):
 
 @app.get("/cases", dependencies=[Depends(require_code)])
 async def list_cases():
-    """Simulated cases opened for every drill and phishing click. A 'fooled' case is emailed to the
-    awareness team automatically; a 'not fooled' case needs no action. Behind the access code."""
+    """Simulated cases opened for every drill and phishing click. A fooled case from the default number is
+    emailed automatically; any other fooled case can be emailed to any address from the Cases tab."""
     return {"cases": await db.list_cases(), "brand": notify.brand(),
             "email": notify.email_configured(), "alert_to": notify.alert_email()}
+
+
+@app.post("/cases/{case_ref}/email", dependencies=[Depends(require_code)])
+async def email_case(case_ref: str, body: dict):
+    """Emails a case's details to any address the organiser enters (from this project, never the police)."""
+    case = await db.get_case(case_ref)
+    if case is None:
+        raise HTTPException(404, "Unknown case.")
+    to = str(body.get("to", "")).strip()
+    if "@" not in to or " " in to:
+        raise HTTPException(400, "Enter a valid email address.")
+    ok, error = await notify.send_case_email(case, to)
+    if not ok:
+        raise HTTPException(502, f"Could not send the email: {error}")
+    await db.set_case_emailed(case_ref, to)
+    return {"ok": True, "to": to}
 
 
 @app.post("/telegram/webhook")

@@ -284,7 +284,7 @@
       <!-- Cases (simulated police handoff) -->
       <section id="tab-cases" role="tabpanel" aria-labelledby="tabbtn-cases" hidden>
         <div class="tab-head">
-          <p>Every drill and every phishing click opens a case &mdash; mirroring a handoff to Abu Dhabi Police (Aman) via TAMM, with the person's identity confirmed by UAE Pass. Each case is labelled <strong>Fooled</strong> or <strong>Not fooled</strong>: a fooled case is emailed to the awareness team automatically; a not-fooled case needs no action.</p>
+          <p>Every drill and every phishing click opens a case &mdash; mirroring a handoff to Abu Dhabi Police (Aman) via TAMM, with the person's identity confirmed by UAE Pass. Each case is labelled <strong>Fooled</strong> or <strong>Not fooled</strong>. A fooled case from the monitored number is emailed automatically; any other fooled case can be emailed to an address you choose. A not-fooled case needs no action.</p>
           <button type="button" class="btn btn-small" id="cases-refresh" disabled>Refresh</button>
         </div>
         <p class="note" data-kind="info" style="margin-bottom: 1.25rem;">Simulation only &mdash; not connected to TAMM, UAE Pass or the Aman service, which Kameen is not authorised to use. Every record is synthetic and no real case is filed. The case email is sent from this project's own name (ScamShield AI), never as the police, a bank or any other body.</p>
@@ -1216,6 +1216,7 @@
       var FOOLED = { would_comply: 1, attempted_disclosure: 1, clicked: 1 };
       var loadingCases = false;
       var caseAlertTo = '';
+      var caseEmailCfg = false;
 
       function caseField(k, v) {
         return h('div', { class: 'case-field' }, [
@@ -1224,9 +1225,38 @@
         ]);
       }
 
+      /* A fooled case that was not auto-emailed can be sent to any address from here. */
+      function caseEmailForm(c) {
+        if (!caseEmailCfg) {
+          return h('p', { class: 'small case-status', text: 'Fooled — add a Resend key on the server to email the case details.' });
+        }
+        var input = h('input', { type: 'email', class: 'input case-dest', value: caseAlertTo || '',
+          placeholder: 'email address', 'aria-label': 'Email the case details to' });
+        var status = h('span', { class: 'small case-status' });
+        var btn = h('button', { type: 'button', class: 'btn btn-small', text: 'Email case details' });
+        btn.addEventListener('click', function () {
+          var to = input.value.trim();
+          if (to.indexOf('@') === -1) { setText(status, 'Enter a valid email address.'); return; }
+          btn.disabled = true;
+          setText(status, 'Sending…');
+          api('/cases/' + encodeURIComponent(c.case_ref) + '/email', { to: to })
+            .then(function () { loadCases(); })
+            .catch(function (err) {
+              if (authFailed(err)) return;
+              setText(status, 'Could not send: ' + err.message);
+              btn.disabled = false;
+            });
+        });
+        return h('div', { class: 'case-notify' }, [
+          setText(h('span', { class: 'case-k' }), 'Fooled — email the case details'),
+          input, btn, status
+        ]);
+      }
+
       function renderCases(data) {
         var rows = (data && data.cases) || [];
         caseAlertTo = (data && data.alert_to) || '';
+        caseEmailCfg = !!(data && data.email);
         var fooledCount = rows.filter(function (c) { return FOOLED[c.outcome]; }).length;
 
         var fig = $('#cases-figures');
@@ -1263,9 +1293,9 @@
           if (!fooled) {
             action = h('p', { class: 'small case-noaction', text: 'Not fooled — no further action needed.' });
           } else if (c.status === 'Emailed') {
-            action = h('p', { class: 'small case-sent', text: '✓ Case details emailed to ' + (caseAlertTo || 'the awareness team') });
+            action = h('p', { class: 'small case-sent', text: '✓ Case details emailed to ' + (c.sms_text || caseAlertTo || 'the awareness team') });
           } else {
-            action = h('p', { class: 'small case-status', text: 'Fooled — case email not sent (set a Resend key on the server to email ' + (caseAlertTo || 'the team') + ').' });
+            action = caseEmailForm(c);
           }
           list.appendChild(h('div', { class: 'case-card' }, [head, grid, action]));
         });

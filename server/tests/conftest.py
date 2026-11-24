@@ -33,7 +33,7 @@ CODE = {"X-Access-Code": "test-code"}
 @pytest.fixture(autouse=True)
 def no_real_case_email(monkeypatch):
     """No test sends a real case email to Resend. test_cases overrides this to capture them."""
-    async def stub(case):
+    async def stub(case, to):
         return True, ""
     monkeypatch.setattr(notify, "send_case_email", stub)
 

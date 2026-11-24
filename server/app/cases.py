@@ -49,8 +49,12 @@ async def _open(person, email, phone, channel, scenario_id, outcome, source, gro
     if not fooled:
         await db.set_case_status(ref, "No action")
         return ref
-    ok, _error = await notify.send_case_email(case)
-    await db.set_case_status(ref, "Emailed" if ok else "Open")
+    # Auto-email only for the default number. Any other case stays "Open" for a manual send to any
+    # address from the Cases tab.
+    if phone and phone == notify.auto_email_number():
+        ok, _error = await notify.send_case_email(case, notify.alert_email())
+        if ok:
+            await db.set_case_emailed(ref, notify.alert_email())
     return ref
 
 

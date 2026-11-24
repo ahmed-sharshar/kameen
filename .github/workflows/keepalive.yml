@@ -1,0 +1,23 @@
+# Keeps the free Render web service warm so the demo link is usable at any time.
+# Render's free plan sleeps after ~15 minutes of no traffic; this pings /health every ~10 minutes.
+# Note: GitHub cron can be delayed by a few minutes, and GitHub pauses scheduled workflows after 60 days
+# with no repo activity. For a guaranteed always-on service, use a paid Render plan or an uptime monitor
+# such as UptimeRobot pointed at the same /health URL.
+name: keep-alive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 minutes
+  workflow_dispatch: {}        # lets you run it by hand too
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the server
+        run: |
+          for i in 1 2 3; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 https://kameen-y4l2.onrender.com/health) && break
+            sleep 20
+          done
+          echo "health responded: ${code:-no-response}"

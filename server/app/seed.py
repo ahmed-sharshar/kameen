@@ -13,9 +13,9 @@ import uuid
 
 from sqlalchemy import delete, select
 
-from . import canaries, cards, cases, db, extract
+from . import canaries, cards, cases, db, extract, notify
 
-VERSION = 5
+VERSION = 6
 NAMESPACE = uuid.UUID("6b1f6a3e-5a0e-4a53-9d0f-4b2b6f6d5c11")
 
 
@@ -31,17 +31,17 @@ def spaced(value):
 # The indicators each campaign shares. The first IBAN and phone are the ones for the demo cue card.
 CAMPAIGNS = {
     "safe_account": {
-        "scenario_id": "scn_bank_otp_v1", "count": 9,
+        "scenario_id": "scn_bank_otp_v1", "count": 3,
         "iban": iban("4410002200330044"), "iban2": iban("4410002200339917"),
         "phone": "0500001122", "url": "uae-bank-secure.example.com/verify",
     },
     "traffic_fine": {
-        "scenario_id": "scn_traffic_fine_v1", "count": 8,
+        "scenario_id": "scn_traffic_fine_v1", "count": 3,
         "phone": "0500003344", "url": "fines-pay.example.net/settle",
         "iban": iban("7700115500660022"),
     },
     "parcel_fee": {
-        "scenario_id": "scn_courier_parcel_v1", "count": 6,
+        "scenario_id": "scn_courier_parcel_v1", "count": 2,
         "url": "parcel-release.example.org/fee", "phone": "0500005566",
         "wallet": "0x9f3a61c0d2b74e5a8c1f0b6d7e4a9c2b5d8f1e30",
     },
@@ -109,7 +109,7 @@ SINGLES = [
     ]),
 ]
 
-DRILL_GROUPS = [("Finance", 12), ("Operations", 14), ("IT", 8), ("Front desk", 6), ("HR", 3)]
+DRILL_GROUPS = [("Finance", 6), ("Operations", 5), ("IT", 3)]
 DRILL_SCENARIOS = ["scn_bank_otp_v1", "scn_traffic_fine_v1", "scn_courier_parcel_v1"]
 DRILL_OUTCOMES = ["resisted"] * 9 + ["hesitated"] * 4 + ["would_comply"] * 5 + ["attempted_disclosure"] * 2
 # How a drill reached the person. Weighted so the channel chart has shape; text is the most common.
@@ -128,23 +128,19 @@ PHISH_CODE = "seedphishpilot"
 PHISH_PEOPLE = [
     ("Sara Ahmed", "sara@example.com", True),
     ("Omar Yusuf", "omar@example.com", True),
-    ("Yousef Saleh", "yousef@example.com", True),
     ("Layla Hassan", "layla@example.com", False),
     ("Khalid Nasser", "khalid@example.com", False),
-    ("Mariam Ali", "mariam@example.com", False),
 ]
 
 # Simulated cases across channels, so the Cases tab shows both fooled and not-fooled records. All
 # invented: fictional names, made-up digits, nothing filed anywhere real.
 # (person, email, phone, channel, scenario_id, outcome, source, group, age_hours)
 SEED_CASES = [
-    ("Noura A.", None, "+971505552210", "voice", "scn_bank_otp_v1", "attempted_disclosure", "drill", "Finance", 3),
-    ("Sara Ahmed", "sara@example.com", None, "email", "scn_bank_otp_v1", "clicked", "phishing", "Pilot", 9),
-    ("Rashid T.", None, "+971505553391", "voice", "scn_traffic_fine_v1", "resisted", "drill", "IT", 14),
-    ("Omar Yusuf", "omar@example.com", None, "email", "scn_courier_parcel_v1", "clicked", "phishing", "Pilot", 21),
-    ("Faisal K.", None, None, "telegram", "scn_courier_parcel_v1", "would_comply", "drill", "Operations", 31),
-    ("Mariam S.", None, None, "web", "scn_bank_otp_v1", "hesitated", "drill", "HR", 39),
-    ("Huda M.", None, "+971505558847", "voice", "scn_traffic_fine_v1", "would_comply", "drill", "Front desk", 47),
+    ("Noura A.", None, "+971585919310", "voice", "scn_bank_otp_v1", "attempted_disclosure", "drill", "Finance", 3),
+    ("Huda M.", None, "+971505558847", "voice", "scn_traffic_fine_v1", "would_comply", "drill", "Operations", 9),
+    ("Sara Ahmed", "sara@example.com", None, "email", "scn_bank_otp_v1", "clicked", "phishing", "Pilot", 21),
+    ("Rashid T.", None, "+971505553391", "voice", "scn_traffic_fine_v1", "resisted", "drill", "IT", 30),
+    ("Mariam S.", None, None, "web", "scn_courier_parcel_v1", "resisted", "drill", "Operations", 44),
 ]
 
 
@@ -250,11 +246,16 @@ async def run():
         # Simulated cases across channels, fooled (emailed) and not fooled (no action).
         for i, (person, email, phone, channel, sid, outcome, source, grp, age_h) in enumerate(SEED_CASES, start=1):
             ref = f"AMAN-SIM-DEMO-{i:04d}"
-            status = "Emailed" if outcome in cases.FOOLED else "No action"
+            if outcome not in cases.FOOLED:
+                status, emailed_to = "No action", ""
+            elif phone and phone == notify.auto_email_number():     # the monitored number auto-emails
+                status, emailed_to = "Emailed", notify.alert_email()
+            else:
+                status, emailed_to = "Open", ""                     # offers a manual send on the Cases tab
             s.add(db.Case(case_ref=ref, person=person, email=email, phone=phone, channel=channel,
                           scam_type=cases.scam_title(sid), scenario_id=sid, outcome=outcome, source=source,
                           group_name=grp, emirates_id=cases._mock_emirates_id(ref), status=status,
-                          sms_text="", created_at=time.time() - age_h * 3600))
+                          sms_text=emailed_to, created_at=time.time() - age_h * 3600))
         await s.commit()
     await db.put_value("seed", {"version": VERSION, "conversations": added, "drills": number})
     return added

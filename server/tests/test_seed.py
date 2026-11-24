@@ -9,31 +9,36 @@ def test_seed_values_are_synthetic():
                 assert canaries.iban_ok(campaign[key]) and campaign[key][4:7] == "999"   # the synthetic bank code
         assert campaign["phone"].startswith("050") and len(campaign["phone"]) == 10      # made-up digits after 050
         assert ".example." in campaign["url"]                                            # a reserved domain
-    assert sum(c["count"] for c in seed.CAMPAIGNS.values()) + len(seed.SINGLES) == 25
+    assert sum(c["count"] for c in seed.CAMPAIGNS.values()) + len(seed.SINGLES) == 10
 
 
 def test_seed_loads_linked_campaigns_once_and_clears(client, code):
     before = len(client.get("/sessions", headers=code).json()["sessions"])
     drills_before = client.get("/drills/summary", headers=code).json()["total"]
 
-    assert client.portal.call(seed.run) == 25
+    assert client.portal.call(seed.run) == 10
     assert client.portal.call(seed.run) == 0                     # already loaded: nothing is added twice
     client.portal.call(db.put_value, "seed", {"version": seed.VERSION - 1})
-    assert client.portal.call(seed.run) == 25                    # an older set is replaced, not added to
+    assert client.portal.call(seed.run) == 10                    # an older set is replaced, not added to
 
-    # 25 decoy/single conversations, plus one ended drill conversation per drill result, so each
+    # 10 decoy/single conversations, plus one ended drill conversation per drill result, so each
     # result can be grouped by the channel it ran on.
     sessions = client.get("/sessions", headers=code).json()["sessions"]
-    assert len(sessions) == before + 25 + 43
+    assert len(sessions) == before + 10 + 14
     graph = client.get("/campaigns", headers=code).json()
     cue_iban = "iban:" + seed.CAMPAIGNS["safe_account"]["iban"]
-    assert sum(1 for edge in graph["edges"] if edge["target"] == cue_iban) == 9
+    assert sum(1 for edge in graph["edges"] if edge["target"] == cue_iban) == 3
     assert graph["campaigns"] >= 3
 
     summary = client.get("/drills/summary", headers=code).json()
-    assert summary["total"] == drills_before + 43
+    assert summary["total"] == drills_before + 14
     groups = {g["group"]: g["total"] for g in summary["by_group"]}
-    assert groups["Operations"] == 14 and "HR" not in groups     # a group of three is never shown by name
+    # "Operations" (5) is seeded only here, so its count is exact and it is shown by name at the threshold.
+    # (Finance and IT are also enrolled by other tests, so their absolute totals are not asserted.)
+    assert groups.get("Operations") == 5
+    # Only groups at or above the minimum are named; smaller ones (the seed's IT of 3) fold into one row.
+    assert all(g["total"] >= summary["min_group"]
+               for g in summary["by_group"] if g["group"] != "Smaller groups (combined)")
 
     # A scammer who names the cue-card IBAN in a new session lands in the seeded campaign.
     conv_id = client.post("/sessions", json={"mode": "decoy", "persona_id": "rajesh"}, headers=code).json()["conversation_id"]
@@ -47,6 +52,6 @@ def test_seed_loads_linked_campaigns_once_and_clears(client, code):
         time.sleep(0.05)
     assert {"source": conv_id, "target": cue_iban} in graph["edges"]
 
-    assert client.portal.call(seed.clear) == 25 + 43
+    assert client.portal.call(seed.clear) == 10 + 14
     assert len(client.get("/sessions", headers=code).json()["sessions"]) == before + 1
     assert client.get("/drills/summary", headers=code).json()["total"] == drills_before

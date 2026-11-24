@@ -3,3 +3,5 @@
    is named here, so change it only to an address you own. */
 const HOSTED_API = 'https://kameen-y4l2.onrender.com';
 const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:8000' : HOSTED_API;
+/* The demo is open: anyone with the link is let straight in with this code, no unlock step. */
+const DEFAULT_CODE = 'a50a3a505c5f1bc17dd1569eab0c48bc';

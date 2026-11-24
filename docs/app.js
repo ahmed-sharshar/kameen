@@ -17,6 +17,11 @@ function dropStored(key) {
   try { sessionStorage.removeItem(key); } catch (e) { /* storage blocked */ }
 }
 
+/* Open demo: default the access code in so the link is usable with no unlock step. */
+try {
+  if (typeof DEFAULT_CODE === 'string' && !sessionStorage.getItem('code')) sessionStorage.setItem('code', DEFAULT_CODE);
+} catch (e) { /* storage blocked */ }
+
 /* ------------------------------------------------------------------ server */
 
 var WAKE_TRIES = 30;
@@ -58,7 +63,7 @@ async function wakeServer(statusEl) {
 function requestHeaders() {
   return {
     'Content-Type': 'application/json',
-    'X-Access-Code': getStored('code') || ''
+    'X-Access-Code': getStored('code') || (typeof DEFAULT_CODE === 'string' ? DEFAULT_CODE : '')
   };
 }
 

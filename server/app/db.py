@@ -566,12 +566,21 @@ async def get_case(case_ref):
     if row is None:
         return None
     return {"case_ref": row.case_ref, "person": row.person, "email": row.email, "phone": row.phone,
-            "channel": row.channel, "status": row.status, "sms_text": row.sms_text}
+            "channel": row.channel, "scam_type": row.scam_type, "scenario_id": row.scenario_id,
+            "outcome": row.outcome, "group_name": row.group_name, "emirates_id": row.emirates_id,
+            "status": row.status, "sms_text": row.sms_text}
 
 
 async def set_case_status(case_ref, status):
     async with Session() as s:
         await s.execute(update(Case).where(Case.case_ref == case_ref).values(status=status))
+        await s.commit()
+
+
+async def set_case_emailed(case_ref, to):
+    """Records that the case details were emailed, and to whom (kept in sms_text for display)."""
+    async with Session() as s:
+        await s.execute(update(Case).where(Case.case_ref == case_ref).values(status="Emailed", sms_text=to))
         await s.commit()
 
 
