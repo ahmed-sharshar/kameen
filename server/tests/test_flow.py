@@ -2,7 +2,7 @@
 import json
 import time
 
-from app import canaries, extract
+from app import canaries, db, extract
 from app.director import legal_move
 
 
@@ -118,6 +118,24 @@ def test_drill_stops_before_disclosure(client, code):
     state = detail(client, code, conv_id)
     assert state["drill_result"]["outcome"] == "would_comply"
     assert say(client, code, conv_id, "hello?")["reply"] == ""        # the session is closed
+
+
+def test_an_early_yes_does_not_end_the_drill_as_would_comply(client, code):
+    # Reproduces the voice drill where the agent rushed the ask on turn one: with the commit check armed,
+    # a filler "Yes" on the opening exchange must NOT end the drill as "would comply".
+    conv_id = start(client, code, mode="drill", scenario_id="scn_bank_otp_v1",
+                    enrolment_id=enrol(client, code))["conversation_id"]
+
+    async def arm(cid):
+        async with db.Session() as s:
+            conv = await s.get(db.Conversation, cid)
+            conv.awaiting_commit = True
+            await s.commit()
+    client.portal.call(arm, conv_id)
+
+    reply = say(client, code, conv_id, "Yes")
+    assert reply["status"] == "active"                               # the drill keeps going, no reveal
+    assert detail(client, code, conv_id)["drill_result"] is None
 
 
 def test_drill_masks_a_blurted_code_before_storage(client, code):

@@ -96,6 +96,13 @@ async def agent_turn_stream(conv_id, incoming_text):
     over = conv.turn_count >= max_turns or (
         conv.voice_started_at is not None and time.time() - conv.voice_started_at >= max_seconds)
 
+    # A person cannot meaningfully "comply" before the scam has been built. If the agent rushed the ask
+    # and a filler "yes" came back on the opening exchange, ignore it and keep the drill going: a drill
+    # must never end as "would comply" on the first turn or two. Actually saying a secret aloud
+    # (attempted_disclosure) still ends it at once — that is the safety stop, not a pacing call.
+    if verdict == "would_comply" and conv.turn_count < 2:
+        verdict = "continuing"
+
     if conv.mode == "drill" and (over or verdict in guards.REVEAL_VERDICTS):
         outcome = verdict if verdict in guards.REVEAL_VERDICTS else "hesitated"
         async for sentence in reveal_and_teach(conv, outcome):       # fixed text, no model call
