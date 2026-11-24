@@ -5,6 +5,7 @@ import uuid
 from types import SimpleNamespace
 
 from sqlalchemy import JSON, Boolean, Float, Integer, String, Text, delete, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -546,18 +547,38 @@ async def record_click(token):
 
 async def add_case(case_ref, person, email, phone, channel, scam_type, scenario_id, outcome, source,
                    group_name, emirates_id, sms_text):
+    """Inserts a case. Returns the ref, or None if that ref is already taken, so the caller can try
+    the next number (case_ref is unique, and seeding or a re-run can leave gaps that count-based refs
+    would collide with)."""
     async with Session() as s:
         s.add(Case(case_ref=case_ref, person=(person or "Unknown")[:80], email=(email or None),
                    phone=(phone or None), channel=channel, scam_type=(scam_type or "")[:120],
                    scenario_id=scenario_id, outcome=outcome, source=source, group_name=(group_name or "")[:80],
                    emirates_id=emirates_id, status="Open", sms_text=sms_text, created_at=time.time()))
-        await s.commit()
+        try:
+            await s.commit()
+        except IntegrityError:
+            await s.rollback()
+            return None
     return case_ref
 
 
 async def count_cases():
     async with Session() as s:
         return (await s.execute(select(func.count()).select_from(Case))).scalar_one()
+
+
+async def max_case_seq():
+    """The largest trailing number used in any case reference (0 if there are none), so the next case
+    reference is always above every one already stored and never hits the unique constraint."""
+    async with Session() as s:
+        refs = (await s.execute(select(Case.case_ref))).scalars().all()
+    best = 0
+    for ref in refs:
+        tail = (ref or "").rsplit("-", 1)[-1]
+        if tail.isdigit():
+            best = max(best, int(tail))
+    return best
 
 
 async def get_case(case_ref):

@@ -91,6 +91,23 @@ def test_a_not_fooled_drill_opens_a_case_but_sends_nothing(client, code, emails)
     assert opened and all(c["status"] == "No action" for c in opened) and emails == []
 
 
+def test_a_new_case_opens_even_when_the_count_based_reference_is_already_taken(client, code, emails):
+    """Regression: a case reference equal to count+1 already exists (seeding and re-runs cause this).
+    The old count-based scheme collided on the unique reference and the drill revealed with no case.
+    A new case must still open, under a reference of its own."""
+    from app import db as appdb
+    taken = cases._case_ref(client.portal.call(appdb.count_cases) + 1)
+    if client.portal.call(appdb.get_case, taken) is None:
+        # add_case(case_ref, person, email, phone, channel, scam_type, scenario_id, outcome, source,
+        #          group_name, emirates_id, sms_text) — portal.call takes positional args only.
+        client.portal.call(appdb.add_case, taken, "Prior", None, None, "voice", "t",
+                           "scn_bank_otp_v1", "resisted", "drill", "g", "784-x", "")
+    conv = SimpleNamespace(enrolment_id=None, channel="web", scenario_id="scn_bank_otp_v1")
+    ref = client.portal.call(cases.open_from_drill, conv, "resisted")
+    assert ref is not None and ref != taken                    # opened under a fresh reference, no collision
+    assert find_case(client, code, case_ref=ref)["status"] == "No action"
+
+
 def test_the_case_email_is_branded_never_police():
     case = {"case_ref": "AMAN-SIM-2026-0001", "person": "Test", "channel": "voice",
             "scam_type": "Bank security team", "outcome": "would_comply", "group_name": "Finance",

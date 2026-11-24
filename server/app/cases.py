@@ -39,13 +39,21 @@ def scam_title(scenario_id):
 async def _open(person, email, phone, channel, scenario_id, outcome, source, group_name):
     """Opens a case for ANY drill or click. A 'fooled' case is emailed automatically to the awareness
     team; a 'not fooled' case is recorded and needs no action."""
-    seq = await db.count_cases() + 1
-    ref = _case_ref(seq)
     fooled = outcome in FOOLED
-    case = {"case_ref": ref, "person": person, "email": email, "phone": phone, "channel": channel,
-            "scam_type": scam_title(scenario_id), "scenario_id": scenario_id, "outcome": outcome,
-            "source": source, "group_name": group_name, "emirates_id": _mock_emirates_id(ref)}
-    await db.add_case(sms_text="", **case)
+    # Reference numbers run above every one already stored. add_case returns None if a reference is
+    # somehow still taken (a race, or seeded rows), so we step to the next number and try again.
+    base = await db.max_case_seq()
+    ref, case = None, None
+    for step in range(1, 8):
+        candidate = _case_ref(base + step)
+        case = {"case_ref": candidate, "person": person, "email": email, "phone": phone, "channel": channel,
+                "scam_type": scam_title(scenario_id), "scenario_id": scenario_id, "outcome": outcome,
+                "source": source, "group_name": group_name, "emirates_id": _mock_emirates_id(candidate)}
+        if await db.add_case(sms_text="", **case):
+            ref = candidate
+            break
+    if ref is None:
+        return None                                   # could not reserve a reference; the reveal still runs
     if not fooled:
         await db.set_case_status(ref, "No action")
         return ref

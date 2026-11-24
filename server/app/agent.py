@@ -285,7 +285,11 @@ async def reveal_and_teach(conv, outcome):
     red_flags = conv.card.get("red_flags", [])
     await db.finish_drill(conv, outcome, [] if outcome in ("resisted", "ignored") else red_flags)
     # A person caught out in a drill opens a simulated police case (never a real TAMM/Aman filing).
-    await cases.open_from_drill(conv, outcome)
+    # The reveal and lesson are the point of the drill, so a case-logging error must never swallow them.
+    try:
+        await cases.open_from_drill(conv, outcome)
+    except Exception as error:
+        llm.log("opening a case failed:", repr(error))
     await db.add_message(conv.id, "agent", text)
     await publish(conv.id, {"type": "drill_outcome", "outcome": outcome, "text": text,
                             "lesson": lesson, "red_flags": red_flags})
