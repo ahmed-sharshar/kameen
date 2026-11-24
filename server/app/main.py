@@ -132,9 +132,10 @@ async def voice_session(body: dict):
 @app.get("/voice/outbound", dependencies=[Depends(require_code)])
 async def outbound_status():
     """Whether real phone calls are set up, and the voices that can be used for them."""
+    # Indian English is listed first, so the dashboard call form defaults to it.
     return {"ready": voice.outbound_ready(),
             "voices": [{"id": v, "label": label, "language": sessions.LANGUAGE_BY_VOICE[v]}
-                       for v, label in (("english", "English"), ("indian_english", "Indian English"),
+                       for v, label in (("indian_english", "Indian English"), ("english", "English"),
                                         ("emirati", "Emirati Arabic"))]}
 
 
