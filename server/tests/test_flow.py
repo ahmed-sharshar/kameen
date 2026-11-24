@@ -149,10 +149,14 @@ def test_drill_masks_a_blurted_code_before_storage(client, code):
     assert "482913" not in stored and "4539" not in stored and "[REDACTED]" in stored
 
 
-def test_drill_praises_a_refusal(client, code):
+def test_a_refusal_keeps_pushing_and_an_explicit_stop_ends_it(client, code):
     conv_id = start(client, code, mode="drill", scenario_id="scn_courier_parcel_v1",
                     enrolment_id=enrol(client, code))["conversation_id"]
-    ended = say(client, code, conv_id, "This is a scam, I am not expecting any parcel.")
+    # An in-character refusal does NOT end the drill: the agent keeps pushing.
+    ongoing = say(client, code, conv_id, "This is a scam, I am not expecting any parcel.")
+    assert ongoing["status"] == "active" and detail(client, code, conv_id)["drill_result"] is None
+    # An explicit stop / bot call-out ends it, praised as a resist.
+    ended = say(client, code, conv_id, "Are you a bot?")
     assert ended["status"] == "ended" and "Well done" in ended["reply"]
     assert detail(client, code, conv_id)["drill_result"]["outcome"] == "resisted"
 
@@ -328,7 +332,7 @@ def test_server_takes_over_if_the_model_announces_the_drill(client, code, monkey
     assert ended["reply"].startswith("I understand this is stressful. This was a Kameen safety drill.")
     assert "I am going to stop here" not in ended["reply"] and "training drill" not in ended["reply"]
     state = detail(client, code, conv_id)
-    assert state["drill_result"]["outcome"] == "hesitated"
+    assert state["drill_result"]["outcome"] == "resisted"          # no secret given
     assert [m["speaker"] for m in state["messages"]][-2:] == ["agent", "agent"]
 
 

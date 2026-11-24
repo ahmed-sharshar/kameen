@@ -42,8 +42,8 @@ def decoy(**kw):
     ("خلاص، شو المطلوب مني؟", "continuing", None),
     ("is this real?", "resisted", None),
     ("are you a bot?", "resisted", None),
-    ("this is a scam", "resisted", None),
-    ("the code is none of your business, I won't give it", "resisted", None),
+    ("this is a scam", "continuing", None),                          # a refusal keeps the drill going now
+    ("the code is none of your business, I won't give it", "continuing", None),
     ("please don't suspend it, I'm scared", "distress", None),
     ("ok let me get my card", "would_comply", None),
     ("one second I have it", "would_comply", None),
@@ -192,8 +192,8 @@ def test_oh_is_a_zero_only_inside_a_number():
     "I'm not comfortable sending it in a message like this.",
     "I'll call the bank and ask them.",
 ])
-def test_wanting_to_verify_elsewhere_counts_as_resisting(text):
-    assert g.check_inbound(drill(), text)[1] == "resisted"
+def test_wanting_to_verify_elsewhere_keeps_the_drill_going(text):
+    assert g.check_inbound(drill(), text)[1] == "continuing"        # the agent keeps pushing, not reveals
 
 
 def test_agent_warning_the_trainee_hands_over_to_the_server():
@@ -280,7 +280,7 @@ def test_amounts_and_short_numbers_are_not_payment_details(sentence):
     "I'm not sending money to someone I haven't met.",
     "If you can't show me the papers then I'll pass.",
 ])
-def test_refusing_to_pay_counts_as_resisting(text):
+def test_refusing_to_pay_keeps_the_drill_going(text):
     conv = NS(mode="drill", agent_digits=[], card={"commit_signals": ["i will transfer the deposit"]},
               awaiting_commit=True, risk_flags=[])
-    assert g.check_inbound(conv, text)[1] == "resisted"
+    assert g.check_inbound(conv, text)[1] == "continuing"           # keep pushing until they give in or time is up

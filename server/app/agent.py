@@ -10,7 +10,7 @@ from .extract import run_extractor
 from .prompting import stable_prompt, turn_note
 
 SENTENCE_END = re.compile(r"(?<=[.!?؟])\s+")      # includes the Arabic question mark
-LIMITS = {"decoy": (25, 300), "drill": (8, 180)}   # turns, seconds of voice
+LIMITS = {"decoy": (25, 300), "drill": (40, 300)}   # turns, seconds of voice (drill: keep pushing up to 5 min)
 IDLE_SECONDS = {"drill": 15 * 60, "decoy": 2 * 3600}   # a session this quiet is closed
 REVEAL_LINE = {
     "en": "This was a Kameen safety drill. You are safe and nothing was collected.",
@@ -104,7 +104,9 @@ async def agent_turn_stream(conv_id, incoming_text):
         verdict = "continuing"
 
     if conv.mode == "drill" and (over or verdict in guards.REVEAL_VERDICTS):
-        outcome = verdict if verdict in guards.REVEAL_VERDICTS else "hesitated"
+        # Running out of time (about five minutes) means the person held out: that is resisting, not
+        # hesitating. The drill only ends early on disclosure, distress or an explicit stop.
+        outcome = verdict if verdict in guards.REVEAL_VERDICTS else "resisted"
         async for sentence in reveal_and_teach(conv, outcome):       # fixed text, no model call
             yield sentence
         return
@@ -153,7 +155,7 @@ async def agent_turn_stream(conv_id, incoming_text):
                 await publish(conv_id, {"type": "message", "speaker": "agent", "text": said})
             # The sentence that was held back is kept for the operator: it is the model's, not the trainee's.
             await publish(conv_id, {"type": "guard", "event": "self_reveal", "held_back": self_reveal[:300]})
-            async for sentence in reveal_and_teach(conv, "hesitated"):
+            async for sentence in reveal_and_teach(conv, "resisted"):   # no secret was given
                 yield sentence
             return
         if buffer.strip():
@@ -242,7 +244,9 @@ async def classify_commit(conv, masked_text):
         return "continuing"
     llm.record(llm.model("live"), message.usage)
     word = next((b.text for b in message.content if b.type == "text"), "").strip().lower()
-    return {"will_comply": "would_comply", "resisting": "resisted"}.get(word, "continuing")
+    # Resisting the direct ask does not end the drill either — the agent keeps pressing until the person
+    # gives in or time runs out. Only a clear "will comply" moves it to the reveal.
+    return "would_comply" if word == "will_comply" else "continuing"
 
 
 async def close_idle(idle=None):

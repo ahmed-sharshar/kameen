@@ -115,14 +115,17 @@ def check_inbound(conv, text):
     # The real value is never stored or sent to a model. Echoing a number the agent said is not a secret.
     masked = mask_secrets(text, conv.agent_digits)
     signals = "|".join(re.escape(s) for s in conv.card.get("commit_signals", []))
-    if SAFE_WORD.search(text):
+    if SAFE_WORD.search(text):                        # an explicit "stop" or "are you a bot" ends it
         return masked, "resisted"
     if masked != text.translate(EASTERN):
         return masked, "attempted_disclosure"
-    if REFUSAL.search(text):
-        return masked, "resisted"
-    if DISTRESS.search(text):
+    if DISTRESS.search(text):                         # genuine fear ends it (safety), even mid-refusal
         return masked, "distress"
+    # An in-character refusal ("this is a scam", "I won't") does NOT end the drill: a real scammer keeps
+    # pushing, so the agent does too, until the person gives in or the time runs out. Caught here, before
+    # the commit checks, so a refusal that happens to contain a trigger word is not mistaken for complying.
+    if REFUSAL.search(text):
+        return masked, "continuing"
     if COMMIT.search(text) or (signals and re.search(signals, text, re.I)):
         return masked, "would_comply"
     if conv.awaiting_commit and YES.search(plain(text)):

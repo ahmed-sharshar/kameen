@@ -113,7 +113,7 @@ def test_arabic_commit_question_arms_the_check_and_refusals_count():
     conv = drill(card={"commit_question": AR_QUESTION, "commit_signals": ["البطاقة عندي"]}, language="ar")
     assert g.check_outbound(conv, AR_QUESTION) == AR_QUESTION and conv.awaiting_commit
     assert g.check_inbound(drill(card=conv.card, language="ar"), "البطاقة عندي")[1] == "would_comply"
-    assert g.check_inbound(drill(language="ar"), "هذا احتيال، ما بعطيك شي")[1] == "resisted"
+    assert g.check_inbound(drill(language="ar"), "هذا احتيال، ما بعطيك شي")[1] == "continuing"
     assert g.check_inbound(drill(language="ar"), "شو تقصد بالرمز؟")[1] == "continuing"
 
 
