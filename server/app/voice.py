@@ -60,7 +60,13 @@ async def place_outbound_call(conv_id, to_number):
     except Exception as error:
         raise VoiceUnavailable(f"Could not reach ElevenLabs: {type(error).__name__}")
     if reply.status_code >= 300:
-        raise VoiceUnavailable(f"ElevenLabs refused the call ({reply.status_code}).")
+        detail = ""
+        try:
+            body = reply.json()
+            detail = str(body.get("detail") or body.get("message") or body)[:200]
+        except Exception:
+            detail = (reply.text or "")[:200]
+        raise VoiceUnavailable(f"ElevenLabs refused the call ({reply.status_code}): {detail}")
     await db.mark_voice(conv_id)                               # opens the voice window and its time limit
     data = reply.json() if reply.content else {}
     return {"call_sid": data.get("callSid"), "elevenlabs_conversation_id": data.get("conversation_id")}
