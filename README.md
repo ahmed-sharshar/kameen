@@ -105,6 +105,18 @@ What the feature never does, by design:
 
 The dashboard lists, per campaign, who was emailed and who clicked. `MAIL_FROM_ADDRESS` sets the sending address (default `onboarding@resend.dev`, which Resend only delivers to the account owner until you verify a domain). The link host comes from `PUBLIC_URL` or `RENDER_EXTERNAL_URL`. Note that some email security scanners open links automatically, which can register as a click.
 
+## Awareness calls by phone
+
+Kameen can call a real number and run a drill by voice. It uses ElevenLabs' Twilio integration, so:
+
+1. In Twilio, buy a number and verify the recipient's number (trial) or run a paid account.
+2. Import the Twilio number into ElevenLabs (Agents → Phone numbers).
+3. On the server set `ELEVENLABS_API_KEY` and `ELEVENLABS_PHONE_NUMBER_ID` (the imported number's ElevenLabs ID), then restart.
+
+On the dashboard's Drills tab, an organiser enters a number, a scenario and a voice, and attests they are authorised. Kameen starts a drill conversation, opens the voice window, and asks ElevenLabs to dial out as the drill's agent. Each turn comes back to the server's `/v1/chat/completions` endpoint keyed by the conversation ID, exactly like a browser voice call, and the drill ends with the spoken reveal. It only calls numbers an organiser enters and attests to; the call is refused unless the key and number ID are set.
+
+Note: the UAE regulates VoIP. Calls from a foreign carrier to UAE mobiles may be filtered or shown as international, and a local caller ID cannot be set. For a real rollout, use the local carriers; for a demo, call verified test numbers.
+
 ## Sessions that go quiet
 
 Once a minute the server closes sessions nobody is in any more: a drill after 15 minutes without a message, a decoy session after two hours. A drill closed this way still gets the reveal and the lesson on its record, with the outcome `stopped`. Leaving the drill page does the same at once.

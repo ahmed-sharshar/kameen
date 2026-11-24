@@ -244,6 +244,40 @@
           </form>
           <div id="phish-campaigns" class="stack"></div>
         </div>
+
+        <!-- Awareness phone calls -->
+        <div class="stack" id="voicecall" style="margin-top: 2.5rem;">
+          <h2 class="section-title">Awareness calls by phone</h2>
+          <p class="small">Call a consented number and run a drill by voice. Kameen dials through ElevenLabs and plays the scenario in the chosen voice; it stops before any secret is given and reveals the drill, like every other channel. Only call people who agreed to be tested.</p>
+          <p class="note" id="voicecall-note" hidden></p>
+          <form id="voicecall-form" class="surprise-form">
+            <label class="field">
+              <span class="field-label">Phone number (international, e.g. +9715XXXXXXXX)</span>
+              <input type="tel" id="voicecall-number" maxlength="20" autocomplete="off" placeholder="+971500000000" required>
+            </label>
+            <label class="field">
+              <span class="field-label">Scenario</span>
+              <select id="voicecall-scenario"></select>
+            </label>
+            <label class="field">
+              <span class="field-label">Voice</span>
+              <select id="voicecall-voice"></select>
+            </label>
+            <label class="field">
+              <span class="field-label">Group or department</span>
+              <input type="text" id="voicecall-group" maxlength="80" autocomplete="off" placeholder="Pilot">
+            </label>
+            <label class="field">
+              <span class="field-label">Authorised by (your name)</span>
+              <input type="text" id="voicecall-by" maxlength="120" autocomplete="off">
+            </label>
+            <label class="check" style="grid-column: 1 / -1;">
+              <input type="checkbox" id="voicecall-attest" required>
+              <span>I confirm this person agreed to receive a security-awareness call, and I am authorised to call them.</span>
+            </label>
+            <button type="submit" class="btn" id="voicecall-send" disabled>Place the call</button>
+          </form>
+        </div>
       </section>
 
       <!-- Evidence -->
@@ -305,7 +339,7 @@
         if (!ready) return;
         if (name === 'sessions') loadSessions();
         else if (name === 'campaigns') loadCampaigns();
-        else if (name === 'drills') { loadDrills(); loadInvites(); loadPhish(); }
+        else if (name === 'drills') { loadDrills(); loadInvites(); loadPhish(); loadVoiceCall(); }
         else if (name === 'evidence') loadEval();
       }
 
@@ -867,7 +901,7 @@
         }
       }
 
-      drillsRefresh.addEventListener('click', function () { loadDrills(); loadInvites(); loadPhish(); });
+      drillsRefresh.addEventListener('click', function () { loadDrills(); loadInvites(); loadPhish(); loadVoiceCall(); });
 
       /* ================================================================ surprise drills */
 
@@ -926,6 +960,7 @@
             (listing.scenarios || []).filter(function (s) { return s && s.approved === true; }).forEach(function (s) {
               $('#surprise-scenario').appendChild(h('option', { value: s.id, text: s.title }));
               $('#phish-scenario').appendChild(h('option', { value: s.id, text: s.title }));
+              $('#voicecall-scenario').appendChild(h('option', { value: s.id, text: s.title }));
             });
             scenariosLoaded = true;
           }
@@ -1057,6 +1092,58 @@
           note(phishNote, 'Could not send: ' + err.message, 'error');
         } finally {
           phishSend.disabled = false;
+        }
+      });
+
+      /* ================================================================ awareness calls */
+
+      var voiceForm = $('#voicecall-form');
+      var voiceSend = $('#voicecall-send');
+      var voiceNote = $('#voicecall-note');
+      var voiceLoaded = false;
+
+      async function loadVoiceCall() {
+        try {
+          var data = await apiGet('/voice/outbound');
+          if (!voiceLoaded) {
+            (data.voices || []).forEach(function (v) {
+              $('#voicecall-voice').appendChild(h('option', { value: v.id, text: v.label }));
+            });
+            voiceLoaded = true;
+          }
+          voiceSend.disabled = !data.ready;
+          if (!data.ready) note(voiceNote, 'Phone calls are not set up. Add the ElevenLabs API key and an imported Twilio number ID on the server.', 'info');
+          else if (voiceNote.dataset.kind !== 'error') note(voiceNote, '');
+        } catch (err) {
+          if (authFailed(err)) return;
+          note(voiceNote, 'Could not load call settings: ' + err.message, 'error');
+        }
+      }
+
+      voiceForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        if (voiceSend.disabled) return;
+        var number = $('#voicecall-number').value.trim();
+        if (!/^\+[1-9]\d{6,14}$/.test(number)) { note(voiceNote, 'Enter the number in international format, like +971500000000.', 'error'); return; }
+        if (!$('#voicecall-attest').checked) { note(voiceNote, 'Please confirm you are authorised to call this person.', 'error'); return; }
+        voiceSend.disabled = true;
+        note(voiceNote, '');
+        try {
+          await api('/voice/outbound', {
+            to_number: number,
+            scenario_id: $('#voicecall-scenario').value,
+            voice: $('#voicecall-voice').value,
+            group_name: $('#voicecall-group').value.trim(),
+            authorised_by: $('#voicecall-by').value.trim(),
+            attest: true
+          });
+          note(voiceNote, 'Calling ' + number + ' now. The phone should ring shortly.', 'info');
+          $('#voicecall-attest').checked = false;
+        } catch (err) {
+          if (authFailed(err)) return;
+          note(voiceNote, 'Could not place the call: ' + err.message, 'error');
+        } finally {
+          voiceSend.disabled = false;
         }
       });
 

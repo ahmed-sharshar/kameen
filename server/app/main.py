@@ -129,6 +129,47 @@ async def voice_session(body: dict):
         raise HTTPException(503, str(reason))
 
 
+@app.get("/voice/outbound", dependencies=[Depends(require_code)])
+async def outbound_status():
+    """Whether real phone calls are set up, and the voices that can be used for them."""
+    return {"ready": voice.outbound_ready(),
+            "voices": [{"id": v, "label": label, "language": sessions.LANGUAGE_BY_VOICE[v]}
+                       for v, label in (("english", "English"), ("indian_english", "Indian English"),
+                                        ("emirati", "Emirati Arabic"))]}
+
+
+@app.post("/voice/outbound", dependencies=[Depends(require_code)])
+async def outbound_call(body: dict):
+    """Calls a consented number and runs a drill by phone. The organiser attests authorisation."""
+    number = str(body.get("to_number", "")).strip()
+    scenario_id = str(body.get("scenario_id", "")).strip()
+    voice_choice = body.get("voice") if body.get("voice") in sessions.LANGUAGE_BY_VOICE else "english"
+    group = str(body.get("group_name", "")).strip() or "Voice drill"
+    authorised_by = str(body.get("authorised_by", "")).strip()
+    if not body.get("attest"):
+        raise HTTPException(400, "You must confirm this person agreed to receive an awareness call.")
+    if not voice.outbound_ready():
+        raise HTTPException(503, "Outbound calls are not set up. Add the ElevenLabs API key and phone number ID.")
+    if not voice.E164.match(number):
+        raise HTTPException(400, "The number must be in international format, like +9715XXXXXXXX.")
+    # An enrolment records who was called and who authorised it, and carries the voice consent.
+    enrolment_id = await sessions.enrol(number, group, handle=number,
+                                        enrolled_by=(authorised_by or "operator")[:20], channels=["voice"])
+    try:
+        conv = await sessions.start_conversation(
+            mode="drill", scenario_id=scenario_id, enrolment_id=enrolment_id, channel="voice",
+            voice=voice_choice, external_id=number)
+    except sessions.SessionRefused as reason:
+        raise HTTPException(403, str(reason))
+    agent.run_later(make_playbook(conv.id))
+    try:
+        result = await voice.place_outbound_call(conv.id, number)
+    except voice.VoiceUnavailable as reason:
+        await db.end_conversation(conv.id, status="killed")
+        raise HTTPException(502, str(reason))
+    return {"conversation_id": conv.id, **result}
+
+
 @app.post("/sessions/{conv_id}/kill", dependencies=[Depends(require_code)])
 async def kill(conv_id: str):
     conv = await db.get_conversation(conv_id)

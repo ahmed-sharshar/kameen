@@ -42,6 +42,8 @@ services:
         sync: false
       - key: ELEVENLABS_AGENT_AR
         sync: false
+      - key: ELEVENLABS_PHONE_NUMBER_ID   # Twilio number imported into ElevenLabs; for outbound calls
+        sync: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
