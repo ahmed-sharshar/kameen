@@ -560,6 +560,21 @@ async def count_cases():
         return (await s.execute(select(func.count()).select_from(Case))).scalar_one()
 
 
+async def get_case(case_ref):
+    async with Session() as s:
+        row = (await s.execute(select(Case).where(Case.case_ref == case_ref))).scalars().first()
+    if row is None:
+        return None
+    return {"case_ref": row.case_ref, "person": row.person, "email": row.email, "phone": row.phone,
+            "channel": row.channel, "status": row.status, "sms_text": row.sms_text}
+
+
+async def mark_case_notified(case_ref):
+    async with Session() as s:
+        await s.execute(update(Case).where(Case.case_ref == case_ref).values(status="Notified"))
+        await s.commit()
+
+
 async def list_cases(limit=200):
     async with Session() as s:
         rows = (await s.execute(select(Case).order_by(Case.created_at.desc()).limit(limit))).scalars().all()

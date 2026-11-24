@@ -6,7 +6,7 @@ rather than by an absolute count.
 """
 from types import SimpleNamespace
 
-from app import cases, sessions
+from app import cases, notify, sessions
 
 from .test_phish import flush, mailbox, make_campaign  # noqa: F401  (mailbox is a fixture used by name)
 
@@ -35,7 +35,8 @@ def test_a_phishing_click_opens_a_simulated_case(client, code, mailbox):
     assert case["person"] == "Dana Case" and case["channel"] == "email"
     assert case["source"] == "phishing" and case["outcome"] == "clicked"
     assert case["case_ref"].startswith("AMAN-SIM-") and case["emirates_id"].startswith("784-")
-    assert "[SIMULATION]" in case["sms_text"] and "not a real police case" in case["sms_text"]
+    # The stored message is the honest, project-branded notification, never a police impersonation.
+    assert "ScamShield AI" in case["sms_text"] and "not a real police case" in case["sms_text"]
 
 
 def test_a_second_click_does_not_open_a_second_case(client, code, mailbox):
@@ -63,3 +64,32 @@ def test_a_resisted_drill_opens_no_case(client, code):
     conv = SimpleNamespace(enrolment_id=None, channel="web", scenario_id="scn_bank_otp_v1")
     client.portal.call(cases.open_from_drill, conv, "resisted")
     assert len(cases_now(client, code)) == before                           # resisting is not a case
+
+
+def test_the_notification_message_is_branded_never_police(client):
+    msg = notify.message_text("AMAN-SIM-2026-0001")
+    assert "ScamShield AI" in msg and "awareness simulation" in msg and "not a real police case" in msg
+    assert not msg.lower().startswith("abu dhabi police")                   # never claims to BE the police
+
+
+def test_notify_needs_attestation_then_sends_and_marks_the_case(client, code, mailbox, monkeypatch):
+    make_campaign(client, code, recipients=[{"name": "Reem Case", "email": "reem.case@example.com"}])
+    flush(client)
+    client.get(f"/t/{mailbox[0]['link'].rsplit('/', 1)[1]}")
+    ref = find_case(client, code, email="reem.case@example.com")["case_ref"]
+
+    sent = []
+    async def fake_notify(to, case_ref):
+        sent.append((to, case_ref))
+        return True, ""
+    monkeypatch.setattr(notify, "notify", fake_notify)
+
+    assert client.post(f"/cases/{ref}/notify", json={"to": "+971500000000"}, headers=code).status_code == 400
+    reply = client.post(f"/cases/{ref}/notify", json={"to": "+971500000000", "attest": True}, headers=code)
+    assert reply.status_code == 200 and reply.json()["channel"] == "sms"
+    assert sent == [("+971500000000", ref)]
+    assert find_case(client, code, case_ref=ref)["status"] == "Notified"
+
+
+def test_notify_unknown_case_is_404(client, code):
+    assert client.post("/cases/NOPE/notify", json={"to": "x@y.co", "attest": True}, headers=code).status_code == 404

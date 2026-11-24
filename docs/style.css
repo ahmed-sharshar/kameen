@@ -1045,6 +1045,11 @@ body.is-revealed { background: var(--reveal-paper); }
 .case-v { overflow-wrap: anywhere; }
 .case-sms { margin-top: 0.9rem; padding: 0.65rem 0.85rem; border-radius: var(--radius-s); background: var(--sunk); }
 .case-sms-body { margin: 0.25rem 0 0; font-size: 0.9rem; }
+.case-notify { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; margin-top: 0.7rem; }
+.case-notify .case-dest { width: auto; flex: 1 1 13rem; min-height: 2.2rem; min-width: 0; }
+.case-check { gap: 0.4rem; font-size: 0.9rem; }
+.case-sent { color: var(--green); font-weight: 600; margin: 0.6rem 0 0; }
+.case-status { color: var(--ink-soft); }
 
 .split { display: grid; gap: 1.5rem; align-items: start; }
 .split > * { min-width: 0; }

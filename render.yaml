@@ -48,10 +48,18 @@ services:
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
         generateValue: true
-      - key: RESEND_API_KEY           # phishing-awareness emails; leave unset to keep the feature off
+      - key: RESEND_API_KEY           # phishing-awareness emails AND case notifications; unset keeps them off
         sync: false
       - key: MAIL_FROM_ADDRESS
         value: onboarding@resend.dev
+      - key: NOTIFY_BRAND             # the sender name on awareness notifications (never the police)
+        value: ScamShield AI
+      - key: TWILIO_ACCOUNT_SID       # case notifications by SMS; leave unset to keep SMS off
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM_NUMBER       # the Twilio phone number SMS is sent from (e.g. +1XXXXXXXXXX)
+        sync: false
       - key: LIVE_MODEL
         value: claude-haiku-5-5
       - key: DIRECTOR_MODEL

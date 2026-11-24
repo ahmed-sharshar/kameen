@@ -11,7 +11,7 @@ UAE Pass OAuth and the real case API would slot in.
 import random
 from datetime import datetime, timezone
 
-from . import cards, db
+from . import cards, db, notify
 
 # A drill "scam" succeeds, for the purpose of opening a case, when the person was about to give a secret.
 AT_RISK = {"would_comply", "attempted_disclosure"}
@@ -32,10 +32,9 @@ def _mock_emirates_id(seed):
 
 
 def simulated_sms(case_ref):
-    """The follow-up the citizen would receive. Marked as a simulation; Kameen never actually sends it."""
-    return ("Abu Dhabi Police (Aman) [SIMULATION]: a cybercrime report has been registered for you. "
-            f"Case {case_ref}. Follow up on TAMM or call 8002626. "
-            "This is a Kameen awareness simulation, not a real police case.")
+    """The awareness notification stored on the case and shown in the UI. Branded as this project
+    (ScamShield AI), never as the police. See notify.message_text, which is also what actually sends."""
+    return notify.message_text(case_ref)
 
 
 def scam_title(scenario_id):

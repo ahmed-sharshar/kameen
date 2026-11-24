@@ -124,14 +124,21 @@ person out (`would_comply` or `attempted_disclosure`) or a phishing link is clic
 on the dashboard's **Cases** tab, with the person, their contact, the channel they were caught on, a
 mock UAE Pass identity, and a follow-up SMS carrying a case reference.
 
-Nothing here is real and Kameen is not authorised to make it real:
+The case record itself is **not connected** to TAMM, UAE Pass or the Abu Dhabi Police Aman service, and
+Kameen is not authorised to connect it. The Emirates ID is invented and the case reference is local.
+`app/cases.py` holds those mock steps — the seams where real UAE Pass OAuth and a real case API would
+slot in if it were ever authorised. The `cases` table is created automatically.
 
-- It is **not connected** to TAMM, UAE Pass or the Abu Dhabi Police Aman service. The Emirates ID is
-  invented, the case reference is local, and the SMS is **never sent** — it is only shown in the UI,
-  marked as a simulation. A real police-branded SMS to a real person would itself be impersonation.
-- `app/cases.py` holds the mock steps (identity, case reference, SMS). If this were ever authorised,
-  those are the seams where the real UAE Pass OAuth and a real case API would slot in.
-- The `cases` table is created automatically; no new environment variable is needed.
+The awareness **notification can be sent for real**, but safely:
+
+- It goes out from **this project's own name** (`NOTIFY_BRAND`, default "ScamShield AI"), never as the
+  police, a bank or any other body. Impersonating any of those — even to a test number — is itself the
+  scam this project fights, so the code cannot do it.
+- It is sent only to a number or address the organiser enters and **attests consent** for, from the
+  Cases tab, one case at a time. Nothing is sent automatically.
+- SMS uses Twilio (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`; optionally
+  `TWILIO_SMS_SENDER` for a registered alphanumeric sender ID). Email reuses Resend. With neither set,
+  the message is shown in the UI but the send button is replaced by a note. See `app/notify.py`.
 
 ## Sessions that go quiet
 
