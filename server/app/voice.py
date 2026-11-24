@@ -67,9 +67,13 @@ async def place_outbound_call(conv_id, to_number):
         except Exception:
             detail = (reply.text or "")[:200]
         raise VoiceUnavailable(f"ElevenLabs refused the call ({reply.status_code}): {detail}")
-    await db.mark_voice(conv_id)                               # opens the voice window and its time limit
     data = reply.json() if reply.content else {}
-    return {"call_sid": data.get("callSid"), "elevenlabs_conversation_id": data.get("conversation_id")}
+    call_sid = data.get("callSid") or data.get("call_sid")
+    if data.get("success") is False or not call_sid:
+        raise VoiceUnavailable("ElevenLabs accepted the request but no call started: "
+                               + str(data.get("message") or data)[:200])
+    await db.mark_voice(conv_id)                               # opens the voice window and its time limit
+    return {"call_sid": call_sid, "elevenlabs_conversation_id": data.get("conversation_id")}
 
 
 async def start_call(conv_id):
