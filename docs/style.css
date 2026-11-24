@@ -1003,8 +1003,11 @@ body.is-revealed { background: var(--reveal-paper); }
 .bar-row[data-tone="ok"] .bar-fill { background: var(--green); }
 .bar-row .bar-sub { display: block; font-size: 0.78rem; color: var(--ink-soft); margin-top: 0.1rem; }
 
-/* Overview: each block of analysis sits on its own quiet card. */
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 1.1rem 1.2rem 1.25rem; }
+/* Overview: each block of analysis sits on its own quiet card.
+   position + isolation give every card its own stacking context, and the donut below gets its own
+   compositing layer, so an inline-SVG chart cannot leave the card lagging or painting over its
+   neighbour while the page scrolls in Chrome. */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 1.1rem 1.2rem 1.25rem; position: relative; isolation: isolate; }
 .panel .bars, .panel .table-wrap { margin-top: 0.2rem; }
 .figures--lead .figure-tile[data-pass="false"] .figure-value { color: var(--red); }
 
@@ -1013,7 +1016,7 @@ body.is-revealed { background: var(--reveal-paper); }
 .chart-row > * { min-width: 0; }
 .chart-row .bars, .chart-row .chart-legend { flex: 1 1 15rem; }
 .donut-wrap { position: relative; width: 9.5rem; height: 9.5rem; flex: 0 0 auto; }
-.donut { width: 100%; height: 100%; display: block; }
+.donut { width: 100%; height: 100%; display: block; transform: translateZ(0); backface-visibility: hidden; }
 .donut-track { stroke: var(--sunk); }
 .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; pointer-events: none; }
 .donut-center-value { font-size: 1.7rem; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
