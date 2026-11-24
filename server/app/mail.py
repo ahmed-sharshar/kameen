@@ -1,14 +1,18 @@
 """One place that actually sends an email. Everything that composes a message (phishing-awareness
 emails, case notifications) hands it here.
 
-Two backends, picked at send time:
-  * SMTP (e.g. Gmail): set SMTP_USER and SMTP_PASSWORD (a Gmail App Password, not the login password).
-    This sends from the authenticated account to ANY recipient, which is what a demo without a verified
-    domain needs. SMTP_HOST / SMTP_PORT default to Gmail's submission server.
-  * Resend's HTTP API: set RESEND_API_KEY (and MAIL_FROM_ADDRESS). Resend's shared sender only reaches
-    the account owner until a domain is verified, so SMTP is preferred when both are set.
+Backends, tried in this order (HTTP first, because our host Render blocks outbound SMTP ports on the
+free plan, so a plain SMTP connection times out there):
+  * SendGrid HTTP API (SENDGRID_API_KEY): sends over HTTPS, so it works on Render. With SendGrid's
+    single-sender verification you verify ONE from address (e.g. a Gmail) and can then send to ANY
+    recipient with no domain to buy. This is the recommended setup for this project.
+  * Resend HTTP API (RESEND_API_KEY, MAIL_FROM_ADDRESS): also HTTPS, but its shared sender only reaches
+    the account owner until a domain is verified.
+  * SMTP (SMTP_USER + SMTP_PASSWORD, e.g. a Gmail App Password): sends from the authenticated account to
+    any recipient. Works locally, but NOT on Render's free plan (SMTP ports are blocked there).
 
-The display name is the caller's to choose; the from ADDRESS is always the real sending account, so
+The from ADDRESS is MAIL_FROM_ADDRESS when set, else the SMTP account; it must be an address the chosen
+provider is allowed to send from (a verified sender). The display name is the caller's to choose, so
 nothing here can impersonate another mailbox.
 """
 import asyncio
@@ -21,6 +25,10 @@ from email.utils import formataddr
 import httpx
 
 
+def sendgrid_configured():
+    return bool(os.environ.get("SENDGRID_API_KEY", "").strip())
+
+
 def smtp_configured():
     return bool(os.environ.get("SMTP_USER", "").strip()) and bool(os.environ.get("SMTP_PASSWORD", "").strip())
 
@@ -30,14 +38,19 @@ def resend_configured():
 
 
 def configured():
-    return smtp_configured() or resend_configured()
+    return sendgrid_configured() or resend_configured() or smtp_configured()
 
 
 def from_address():
-    """The address mail is actually sent from: the SMTP account when SMTP is set, else MAIL_FROM_ADDRESS."""
-    if smtp_configured():
-        return os.environ.get("SMTP_USER", "").strip()
-    return os.environ.get("MAIL_FROM_ADDRESS", "onboarding@resend.dev").strip()
+    """The address mail is sent from: MAIL_FROM_ADDRESS when customised, else the SMTP account, else the
+    Resend shared sender. For SendGrid or Resend this must be a sender that provider has verified."""
+    explicit = os.environ.get("MAIL_FROM_ADDRESS", "").strip()
+    if explicit and explicit != "onboarding@resend.dev":
+        return explicit
+    smtp_user = os.environ.get("SMTP_USER", "").strip()
+    if smtp_user:
+        return smtp_user
+    return explicit or "onboarding@resend.dev"
 
 
 def _send_smtp(from_name, to, subject, html, text, reply_to, headers):
@@ -63,6 +76,36 @@ def _send_smtp(from_name, to, subject, html, text, reply_to, headers):
         server.send_message(msg)
 
 
+async def _send_sendgrid(from_name, to, subject, html, text, reply_to, headers):
+    content = []
+    if text:
+        content.append({"type": "text/plain", "value": text})
+    content.append({"type": "text/html", "value": html or text or ""})      # SendGrid needs plain before html
+    payload = {
+        "personalizations": [{"to": [{"email": to}]}],
+        "from": {"email": from_address(), "name": from_name},
+        "subject": subject, "content": content,
+    }
+    if reply_to:
+        payload["reply_to"] = {"email": reply_to}
+    if headers:
+        payload["headers"] = {key: str(value) for key, value in headers.items()}
+    try:
+        async with httpx.AsyncClient(timeout=20) as http:
+            reply = await http.post("https://api.sendgrid.com/v3/mail/send", json=payload,
+                                    headers={"Authorization": "Bearer " + os.environ["SENDGRID_API_KEY"].strip()})
+    except Exception as error:
+        return False, type(error).__name__
+    if reply.status_code >= 300:
+        try:
+            errors = reply.json().get("errors") or []
+            message = "; ".join(e.get("message", "") for e in errors) or reply.text[:150]
+        except Exception:
+            message = reply.text[:150]
+        return False, f"{reply.status_code} {message}".strip()
+    return True, ""
+
+
 async def _send_resend(from_name, to, subject, html, text, reply_to, headers):
     payload = {"from": formataddr((from_name, from_address())), "to": [to],
                "subject": subject, "html": html, "text": text}
@@ -86,13 +129,16 @@ async def _send_resend(from_name, to, subject, html, text, reply_to, headers):
 
 
 async def deliver(from_name, to, subject, html, text, reply_to=None, headers=None):
-    """Sends one email and returns (ok, error). SMTP first (reaches any recipient), then Resend."""
+    """Sends one email and returns (ok, error). HTTP providers first (they work on Render, which blocks
+    outbound SMTP): SendGrid, then Resend, then SMTP as a local/other-host fallback."""
+    if sendgrid_configured():
+        return await _send_sendgrid(from_name, to, subject, html, text, reply_to, headers)
+    if resend_configured():
+        return await _send_resend(from_name, to, subject, html, text, reply_to, headers)
     if smtp_configured():
         try:
             await asyncio.to_thread(_send_smtp, from_name, to, subject, html, text, reply_to, headers)
             return True, ""
         except Exception as error:
             return False, f"{type(error).__name__}: {error}"[:200]
-    if resend_configured():
-        return await _send_resend(from_name, to, subject, html, text, reply_to, headers)
-    return False, "Email sending is not set up (add SMTP_USER/SMTP_PASSWORD, or a Resend key)."
+    return False, "Email sending is not set up (add a SendGrid or Resend key, or SMTP_USER/SMTP_PASSWORD)."

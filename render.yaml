@@ -48,22 +48,21 @@ services:
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
         generateValue: true
-      # Email delivery. SMTP is preferred and reaches ANY recipient (no domain to verify): set SMTP_USER
-      # to a Gmail address and SMTP_PASSWORD to a Gmail App Password (Google account > Security > App
-      # passwords; needs 2-Step Verification on). Resend is the fallback and, with its shared sender,
-      # only reaches the account owner until a domain is verified at resend.com/domains.
-      - key: SMTP_USER                # e.g. your.name@gmail.com — mail is sent from here
+      # Email delivery. Render's free plan BLOCKS outbound SMTP ports, so use an HTTP provider here.
+      # Recommended: SendGrid. Verify ONE sender address (Settings > Sender Authentication > Single
+      # Sender) — no domain needed — set MAIL_FROM_ADDRESS to that verified address, and put the API
+      # key in SENDGRID_API_KEY. It then sends to ANY recipient.
+      - key: SENDGRID_API_KEY         # HTTP email (works on Render); send from a verified single sender
         sync: false
-      - key: SMTP_PASSWORD            # a Gmail App Password (16 chars), NOT your login password
+      - key: MAIL_FROM_ADDRESS        # the verified sender address (SendGrid/Resend send "from" this)
         sync: false
-      - key: SMTP_HOST
-        value: smtp.gmail.com
-      - key: SMTP_PORT
-        value: "587"
-      - key: RESEND_API_KEY           # fallback if SMTP is not set; unset keeps email off
+      - key: RESEND_API_KEY           # alternative HTTP provider; shared sender reaches only the owner until a domain is verified
         sync: false
-      - key: MAIL_FROM_ADDRESS        # only used by the Resend fallback
-        value: onboarding@resend.dev
+      # SMTP is a local/other-host fallback only (blocked on Render's free plan): SMTP_USER + SMTP_PASSWORD.
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
       - key: NOTIFY_BRAND             # the sender name on awareness notifications (never the police)
         value: ScamShield AI
       - key: CASE_ALERT_EMAIL         # a fooled case from AUTO_EMAIL_NUMBER is emailed here automatically
