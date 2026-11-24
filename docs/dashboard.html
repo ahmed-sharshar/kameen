@@ -209,75 +209,6 @@
             </table>
           </div>
         </div>
-
-        <!-- Phishing-awareness emails -->
-        <div class="stack" id="phish" style="margin-top: 2.5rem;">
-          <h2 class="section-title">Phishing-awareness emails</h2>
-          <p class="small">Send a simulated scam email to people you are authorised to test. The one link in it lands on a Kameen page that records the click and immediately teaches &mdash; there is no login form and nothing is collected. The emails never imitate a real bank or company. Below you see who clicked.</p>
-          <p class="note" id="phish-note" hidden></p>
-          <form id="phish-form" class="surprise-form">
-            <label class="field">
-              <span class="field-label">Group or department</span>
-              <input type="text" id="phish-group" maxlength="80" autocomplete="off" required>
-            </label>
-            <label class="field">
-              <span class="field-label">Scenario</span>
-              <select id="phish-scenario"><option value="">A different one for each person</option></select>
-            </label>
-            <label class="field">
-              <span class="field-label">Language</span>
-              <select id="phish-language"><option value="en">English</option><option value="ar">Arabic</option></select>
-            </label>
-            <label class="field">
-              <span class="field-label">Authorised by (your name)</span>
-              <input type="text" id="phish-by" maxlength="120" autocomplete="off">
-            </label>
-            <label class="field" style="grid-column: 1 / -1;">
-              <span class="field-label">Recipients &mdash; one per line, as <code>Name &lt;email@example.com&gt;</code> or just an email</span>
-              <textarea id="phish-recipients" rows="4" class="input" style="font-family: ui-monospace, Menlo, monospace;" placeholder="Sara Ahmed &lt;sara@example.com&gt;&#10;omar@example.com"></textarea>
-            </label>
-            <label class="check" style="grid-column: 1 / -1;">
-              <input type="checkbox" id="phish-attest" required>
-              <span>I confirm these people have agreed to receive security-awareness tests, and I am authorised to send them.</span>
-            </label>
-            <button type="submit" class="btn" id="phish-send" disabled>Send awareness emails</button>
-          </form>
-          <div id="phish-campaigns" class="stack"></div>
-        </div>
-
-        <!-- Awareness phone calls -->
-        <div class="stack" id="voicecall" style="margin-top: 2.5rem;">
-          <h2 class="section-title">Awareness calls by phone</h2>
-          <p class="small">Call a consented number and run a drill by voice. Kameen dials through ElevenLabs and plays the scenario in the chosen voice; it stops before any secret is given and reveals the drill, like every other channel. Only call people who agreed to be tested.</p>
-          <p class="note" id="voicecall-note" hidden></p>
-          <form id="voicecall-form" class="surprise-form">
-            <label class="field">
-              <span class="field-label">Phone number (international, e.g. +9715XXXXXXXX)</span>
-              <input type="tel" id="voicecall-number" maxlength="20" autocomplete="off" placeholder="+971500000000" required>
-            </label>
-            <label class="field">
-              <span class="field-label">Scenario</span>
-              <select id="voicecall-scenario"></select>
-            </label>
-            <label class="field">
-              <span class="field-label">Voice</span>
-              <select id="voicecall-voice"></select>
-            </label>
-            <label class="field">
-              <span class="field-label">Group or department</span>
-              <input type="text" id="voicecall-group" maxlength="80" autocomplete="off" placeholder="Pilot">
-            </label>
-            <label class="field">
-              <span class="field-label">Authorised by (your name)</span>
-              <input type="text" id="voicecall-by" maxlength="120" autocomplete="off">
-            </label>
-            <label class="check" style="grid-column: 1 / -1;">
-              <input type="checkbox" id="voicecall-attest" required>
-              <span>I confirm this person agreed to receive a security-awareness call, and I am authorised to call them.</span>
-            </label>
-            <button type="submit" class="btn" id="voicecall-send" disabled>Place the call</button>
-          </form>
-        </div>
       </section>
 
       <!-- Evidence -->
@@ -339,7 +270,7 @@
         if (!ready) return;
         if (name === 'sessions') loadSessions();
         else if (name === 'campaigns') loadCampaigns();
-        else if (name === 'drills') { loadDrills(); loadInvites(); loadPhish(); loadVoiceCall(); }
+        else if (name === 'drills') { loadDrills(); loadInvites(); }
         else if (name === 'evidence') loadEval();
       }
 
@@ -901,7 +832,7 @@
         }
       }
 
-      drillsRefresh.addEventListener('click', function () { loadDrills(); loadInvites(); loadPhish(); loadVoiceCall(); });
+      drillsRefresh.addEventListener('click', function () { loadDrills(); loadInvites(); });
 
       /* ================================================================ surprise drills */
 
@@ -959,8 +890,6 @@
             var listing = await apiGet('/cards');
             (listing.scenarios || []).filter(function (s) { return s && s.approved === true; }).forEach(function (s) {
               $('#surprise-scenario').appendChild(h('option', { value: s.id, text: s.title }));
-              $('#phish-scenario').appendChild(h('option', { value: s.id, text: s.title }));
-              $('#voicecall-scenario').appendChild(h('option', { value: s.id, text: s.title }));
             });
             scenariosLoaded = true;
           }
@@ -990,160 +919,6 @@
           if (authFailed(err)) return;
           note(surpriseNote, 'Could not create the invite: ' + err.message, 'error');
           surpriseCreate.disabled = false;
-        }
-      });
-
-      /* ================================================================ phishing emails */
-
-      var phishForm = $('#phish-form');
-      var phishSend = $('#phish-send');
-      var phishNote = $('#phish-note');
-
-      function timeText(epoch) {
-        if (!epoch) return '';
-        try { return new Date(epoch * 1000).toLocaleString(); } catch (e) { return ''; }
-      }
-
-      function parseRecipients(text) {
-        return String(text || '').split(/\n/).map(function (line) {
-          line = line.trim();
-          if (!line) return null;
-          var m = /^(.*?)<([^>]+)>\s*$/.exec(line);
-          if (m) return { name: m[1].trim(), email: m[2].trim() };
-          return { name: '', email: line };
-        }).filter(Boolean);
-      }
-
-      function renderCampaigns(data) {
-        data = data || {};
-        var box = $('#phish-campaigns');
-        clearNode(box);
-        phishSend.disabled = !data.email;
-        if (!data.email) note(phishNote, 'Email sending is not set up. Add a Resend API key on the server to send awareness emails.', 'info');
-        else if (phishNote.dataset.kind !== 'error') note(phishNote, 'Emails are sent from ' + (data.sender || 'the configured address') + '.', 'info');
-        var campaigns = data.campaigns || [];
-        if (!campaigns.length) {
-          box.appendChild(h('p', { class: 'empty', text: 'No campaigns yet.' }));
-          return;
-        }
-        campaigns.forEach(function (c) {
-          var head = h('div', { class: 'campaign-head' }, [
-            h('strong', { text: c.group_name }),
-            h('span', { class: 'small', text: c.scenario + (c.language === 'ar' ? ' (Arabic)' : '') }),
-            h('span', { class: 'chip', 'data-tone': c.clicked ? 'fail' : 'pass', text: c.clicked + ' of ' + c.recipients + ' clicked' })
-          ]);
-          var body = h('tbody');
-          (c.people || []).forEach(function (p) {
-            var clicked = p.clicked_at != null;
-            body.appendChild(h('tr', clicked ? { 'data-clicked': 'true' } : null, [
-              setText(h('td'), p.name),
-              setText(h('td'), p.email),
-              h('td', null, h('span', { class: 'chip', 'data-tone': clicked ? 'fail' : (p.status === 'failed' ? 'fail' : 'pass'), text: clicked ? 'Clicked the link' : (p.status === 'failed' ? 'Not delivered' : (p.status === 'sent' ? 'Did not click' : 'Queued')) })),
-              setText(h('td', { class: 'small' }), clicked ? timeText(p.clicked_at) : (p.status === 'failed' ? (p.error || 'failed') : ''))
-            ]));
-          });
-          box.appendChild(h('div', { class: 'campaign' }, [
-            head,
-            h('div', { class: 'table-wrap table-plain' }, h('table', { class: 'table' }, [
-              h('thead', null, h('tr', null, [
-                h('th', { scope: 'col', text: 'Name' }), h('th', { scope: 'col', text: 'Email' }),
-                h('th', { scope: 'col', text: 'Result' }), h('th', { scope: 'col', text: 'When' })
-              ])),
-              body
-            ]))
-          ]));
-        });
-      }
-
-      async function loadPhish() {
-        try {
-          renderCampaigns(await apiGet('/phish'));
-        } catch (err) {
-          if (authFailed(err)) return;
-          note(phishNote, 'Could not load campaigns: ' + err.message, 'error');
-        }
-      }
-
-      phishForm.addEventListener('submit', async function (event) {
-        event.preventDefault();
-        var group = $('#phish-group').value.trim();
-        var recipients = parseRecipients($('#phish-recipients').value);
-        if (phishSend.disabled) return;
-        if (!group) { note(phishNote, 'Enter a group or department.', 'error'); return; }
-        if (!recipients.length) { note(phishNote, 'Enter at least one recipient.', 'error'); return; }
-        if (!$('#phish-attest').checked) { note(phishNote, 'Please confirm you are authorised to test these people.', 'error'); return; }
-        phishSend.disabled = true;
-        note(phishNote, '');
-        try {
-          var res = await api('/phish', {
-            group_name: group,
-            scenario_id: $('#phish-scenario').value || null,
-            language: $('#phish-language').value,
-            authorised_by: $('#phish-by').value.trim(),
-            recipients: recipients,
-            attest: true
-          });
-          $('#phish-recipients').value = '';
-          $('#phish-attest').checked = false;
-          note(phishNote, 'Sending ' + res.queued + ' email' + (res.queued === 1 ? '' : 's') + (res.skipped ? ' (' + res.skipped + ' skipped)' : '') + '. Refresh in a moment to see who clicks.', 'info');
-          await loadPhish();
-        } catch (err) {
-          if (authFailed(err)) return;
-          note(phishNote, 'Could not send: ' + err.message, 'error');
-        } finally {
-          phishSend.disabled = false;
-        }
-      });
-
-      /* ================================================================ awareness calls */
-
-      var voiceForm = $('#voicecall-form');
-      var voiceSend = $('#voicecall-send');
-      var voiceNote = $('#voicecall-note');
-      var voiceLoaded = false;
-
-      async function loadVoiceCall() {
-        try {
-          var data = await apiGet('/voice/outbound');
-          if (!voiceLoaded) {
-            (data.voices || []).forEach(function (v) {
-              $('#voicecall-voice').appendChild(h('option', { value: v.id, text: v.label }));
-            });
-            voiceLoaded = true;
-          }
-          voiceSend.disabled = !data.ready;
-          if (!data.ready) note(voiceNote, 'Phone calls are not set up. Add the ElevenLabs API key and an imported Twilio number ID on the server.', 'info');
-          else if (voiceNote.dataset.kind !== 'error') note(voiceNote, '');
-        } catch (err) {
-          if (authFailed(err)) return;
-          note(voiceNote, 'Could not load call settings: ' + err.message, 'error');
-        }
-      }
-
-      voiceForm.addEventListener('submit', async function (event) {
-        event.preventDefault();
-        if (voiceSend.disabled) return;
-        var number = $('#voicecall-number').value.trim();
-        if (!/^\+[1-9]\d{6,14}$/.test(number)) { note(voiceNote, 'Enter the number in international format, like +971500000000.', 'error'); return; }
-        if (!$('#voicecall-attest').checked) { note(voiceNote, 'Please confirm you are authorised to call this person.', 'error'); return; }
-        voiceSend.disabled = true;
-        note(voiceNote, '');
-        try {
-          await api('/voice/outbound', {
-            to_number: number,
-            scenario_id: $('#voicecall-scenario').value,
-            voice: $('#voicecall-voice').value,
-            group_name: $('#voicecall-group').value.trim(),
-            authorised_by: $('#voicecall-by').value.trim(),
-            attest: true
-          });
-          note(voiceNote, 'Calling ' + number + ' now. The phone should ring shortly.', 'info');
-          $('#voicecall-attest').checked = false;
-        } catch (err) {
-          if (authFailed(err)) return;
-          note(voiceNote, 'Could not place the call: ' + err.message, 'error');
-        } finally {
-          voiceSend.disabled = false;
         }
       });
 

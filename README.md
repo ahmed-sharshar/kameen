@@ -95,7 +95,7 @@ The server sends due drills once a minute, so it has to be running at that momen
 
 ## Phishing-awareness emails
 
-Set `RESEND_API_KEY` (from [resend.com](https://resend.com)) and restart. On the dashboard's Drills tab an organiser enters a group, a scenario, a language and a list of recipients, and attests that those people agreed to be tested. Kameen sends each one a simulated scam email built from an approved scenario card.
+Set `RESEND_API_KEY` (from [resend.com](https://resend.com)) and restart. On the **Test yourself** page an organiser enters a group, a scenario, a language and a list of recipients, and attests that those people agreed to be tested. Kameen sends each one a simulated scam email built from an approved scenario card.
 
 What the feature never does, by design:
 
@@ -113,7 +113,7 @@ Kameen can call a real number and run a drill by voice. It uses ElevenLabs' Twil
 2. Import the Twilio number into ElevenLabs (Agents → Phone numbers).
 3. On the server set `ELEVENLABS_API_KEY` and `ELEVENLABS_PHONE_NUMBER_ID` (the imported number's ElevenLabs ID), then restart.
 
-On the dashboard's Drills tab, an organiser enters a number, a scenario and a voice, and attests they are authorised. Kameen starts a drill conversation, opens the voice window, and asks ElevenLabs to dial out as the drill's agent. Each turn comes back to the server's `/v1/chat/completions` endpoint keyed by the conversation ID, exactly like a browser voice call, and the drill ends with the spoken reveal. It only calls numbers an organiser enters and attests to; the call is refused unless the key and number ID are set.
+On the **Test yourself** page, an organiser enters a number, a scenario and a voice, and attests they are authorised. Kameen starts a drill conversation, opens the voice window, and asks ElevenLabs to dial out as the drill's agent. Each turn comes back to the server's `/v1/chat/completions` endpoint keyed by the conversation ID, exactly like a browser voice call, and the drill ends with the spoken reveal. It only calls numbers an organiser enters and attests to; the call is refused unless the key and number ID are set.
 
 Note: the UAE regulates VoIP. Calls from a foreign carrier to UAE mobiles may be filtered or shown as international, and a local caller ID cannot be set. For a real rollout, use the local carriers; for a demo, call verified test numbers.
 
