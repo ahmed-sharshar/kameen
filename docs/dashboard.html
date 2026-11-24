@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300..700&display=swap">
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script>requireCode();</script>
@@ -391,38 +391,28 @@
       var CHANNEL_COLOR = { web: 'var(--cat-4)', voice: 'var(--cat-2)', telegram: 'var(--cat-1)', email: 'var(--cat-3)' };
       var SVG_NS = 'http://www.w3.org/2000/svg';
 
-      /* A donut chart drawn as stacked SVG arcs. Each slice is a circle whose dash gap hides the rest. */
+      /* A donut drawn with a CSS conic-gradient and a ring mask. No SVG, so it paints like any other
+         element and cannot leave a stale compositing layer behind while the page scrolls. */
       function fillDonut(container, segments, centerValue, centerLabel) {
         clearNode(container);
         var total = segments.reduce(function (a, s) { return a + (Number(s.value) || 0); }, 0);
-        var svg = document.createElementNS(SVG_NS, 'svg');
-        svg.setAttribute('viewBox', '0 0 42 42');
-        svg.setAttribute('class', 'donut');
-        svg.setAttribute('role', 'img');
-        function ring(stroke, dasharray, dashoffset, cls) {
-          var c = document.createElementNS(SVG_NS, 'circle');
-          c.setAttribute('cx', '21'); c.setAttribute('cy', '21'); c.setAttribute('r', '15.915');
-          c.setAttribute('fill', 'none'); c.setAttribute('stroke-width', '5.5');
-          if (cls) c.setAttribute('class', cls);
-          if (stroke) c.style.stroke = stroke;
-          if (dasharray != null) {
-            c.setAttribute('stroke-dasharray', dasharray);
-            c.setAttribute('stroke-dashoffset', String(dashoffset));
-          }
-          return c;
-        }
-        svg.appendChild(ring(null, null, null, 'donut-track'));
+        var pie = h('div', { class: 'donut-pie' });
         if (total > 0) {
-          var cum = 0;
+          var stops = [];
+          var acc = 0;
           segments.forEach(function (s) {
             var v = Number(s.value) || 0;
             if (v <= 0) return;
-            var pct = v / total * 100;
-            svg.appendChild(ring(s.color, pct.toFixed(3) + ' ' + (100 - pct).toFixed(3), (25 - cum + 100) % 100, 'donut-seg'));
-            cum += pct;
+            var start = (acc / total) * 100;
+            acc += v;
+            var end = (acc / total) * 100;
+            stops.push(s.color + ' ' + start.toFixed(2) + '% ' + end.toFixed(2) + '%');
           });
+          pie.style.background = 'conic-gradient(' + stops.join(', ') + ')';
+        } else {
+          pie.style.background = 'var(--sunk)';
         }
-        container.appendChild(svg);
+        container.appendChild(pie);
         var center = h('div', { class: 'donut-center' }, [setText(h('span', { class: 'donut-center-value' }), centerValue)]);
         if (centerLabel) center.appendChild(setText(h('span', { class: 'donut-center-label' }), centerLabel));
         container.appendChild(center);
