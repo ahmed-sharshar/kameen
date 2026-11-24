@@ -35,11 +35,74 @@
       <h1 class="sr-only">Dashboard</h1>
 
       <div class="tabs" role="tablist" aria-label="Dashboard sections">
-        <button type="button" class="tab" role="tab" id="tabbtn-sessions" data-tab="sessions" aria-controls="tab-sessions" aria-selected="true">Sessions</button>
+        <button type="button" class="tab" role="tab" id="tabbtn-overview" data-tab="overview" aria-controls="tab-overview" aria-selected="true">Overview</button>
+        <button type="button" class="tab" role="tab" id="tabbtn-sessions" data-tab="sessions" aria-controls="tab-sessions" aria-selected="false" tabindex="-1">Sessions</button>
         <button type="button" class="tab" role="tab" id="tabbtn-campaigns" data-tab="campaigns" aria-controls="tab-campaigns" aria-selected="false" tabindex="-1">Campaigns</button>
         <button type="button" class="tab" role="tab" id="tabbtn-drills" data-tab="drills" aria-controls="tab-drills" aria-selected="false" tabindex="-1">Drills</button>
         <button type="button" class="tab" role="tab" id="tabbtn-evidence" data-tab="evidence" aria-controls="tab-evidence" aria-selected="false" tabindex="-1">Evidence</button>
       </div>
+
+      <!-- Overview -->
+      <section id="tab-overview" role="tabpanel" aria-labelledby="tabbtn-overview">
+        <div class="tab-head">
+          <p>Everything Kameen has run, across every channel: how many people were tested, how many were caught out, and where the risk is.</p>
+          <button type="button" class="btn btn-small" id="overview-refresh" disabled>Refresh</button>
+        </div>
+        <p class="note" id="overview-error" role="alert" hidden></p>
+
+        <div class="figures figures--lead" id="overview-figures"></div>
+
+        <div class="panel" style="margin-top: 2rem;">
+          <h2 class="section-title">People caught out, by channel</h2>
+          <p class="small">The share of attempts on each channel where the person was about to hand over a secret, or clicked the phishing link. A longer red bar means that channel caught more people out.</p>
+          <div class="bars" id="overview-channels"><p class="empty">Loading...</p></div>
+        </div>
+
+        <div class="split" style="margin-top: 2rem;">
+          <div class="panel">
+            <h2 class="section-title">How drills ended</h2>
+            <div class="bars" id="overview-outcomes"></div>
+          </div>
+          <div class="panel">
+            <h2 class="section-title">Red flags people miss most</h2>
+            <div class="bars" id="overview-flags"></div>
+            <p class="empty" id="overview-flags-empty" hidden>No missed flags recorded yet.</p>
+          </div>
+        </div>
+
+        <div class="split" style="margin-top: 2rem;">
+          <div class="panel">
+            <h2 class="section-title">At risk, by scenario</h2>
+            <div class="table-wrap table-plain">
+              <table class="table">
+                <thead><tr><th scope="col">Scenario</th><th scope="col" class="num">Drills</th><th scope="col" class="num">At risk</th></tr></thead>
+                <tbody id="overview-scenarios"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel">
+            <h2 class="section-title">At risk, by group</h2>
+            <div class="table-wrap table-plain">
+              <table class="table">
+                <thead><tr><th scope="col">Group</th><th scope="col" class="num">Drills</th><th scope="col" class="num">At risk</th></tr></thead>
+                <tbody id="overview-groups"></tbody>
+              </table>
+            </div>
+            <p class="small" id="overview-min" style="margin-top: 0.5rem;" hidden></p>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top: 2rem;">
+          <h2 class="section-title">People who clicked a phishing link</h2>
+          <p class="small">Email is the one channel where a person can be named &mdash; the link records who clicked. Drills are counted by group only, so no one is singled out.</p>
+          <div class="table-wrap table-plain">
+            <table class="table">
+              <thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Group</th><th scope="col">When</th></tr></thead>
+              <tbody id="overview-clicked-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
 
       <!-- Sessions -->
       <section id="tab-sessions" role="tabpanel" aria-labelledby="tabbtn-sessions">
@@ -235,7 +298,7 @@
 
       var statusEl = $('#status');
       var ready = false;
-      var activeTab = 'sessions';
+      var activeTab = 'overview';
       var personaNames = {};
       var scenarioTitles = {};
 
@@ -268,7 +331,8 @@
           if (on && focus) button.focus();
         });
         if (!ready) return;
-        if (name === 'sessions') loadSessions();
+        if (name === 'overview') loadOverview();
+        else if (name === 'sessions') loadSessions();
         else if (name === 'campaigns') loadCampaigns();
         else if (name === 'drills') { loadDrills(); loadInvites(); }
         else if (name === 'evidence') loadEval();
@@ -284,6 +348,158 @@
           openTab(next.dataset.tab, true);
         });
       });
+
+      /* ================================================================ overview */
+
+      var CHANNEL_LABELS = { web: 'Text / web', voice: 'Phone call', telegram: 'Telegram', email: 'Email (phishing)' };
+      var loadingOverview = false;
+
+      function pct(n, d) { return d > 0 ? Math.round((Number(n) || 0) / d * 100) : 0; }
+      function toneForRate(rate) { return rate >= 40 ? 'risk' : (rate >= 15 ? 'warn' : 'ok'); }
+      function truncate(text, n) { text = String(text == null ? '' : text); return text.length > n ? text.slice(0, n - 1) + '…' : text; }
+
+      function bar(fillWidth) {
+        var fill = h('span', { class: 'bar-fill' });
+        fill.style.width = fillWidth + '%';
+        if (fillWidth <= 0) fill.style.minWidth = '0';
+        return h('span', { class: 'bar-track' }, fill);
+      }
+
+      function channelRow(label, atRisk, total) {
+        var rate = pct(atRisk, total);
+        return h('div', { class: 'bar-row', 'data-tone': toneForRate(rate) }, [
+          h('span', null, [
+            setText(h('span'), label),
+            setText(h('span', { class: 'bar-sub' }), showNumber(atRisk) + ' of ' + showNumber(total))
+          ]),
+          bar(total > 0 ? rate : 0),
+          h('span', { class: 'bar-count', text: total > 0 ? rate + '%' : '—' })
+        ]);
+      }
+
+      function renderOverview(summary, phishData, sessionList) {
+        summary = summary || {}; phishData = phishData || {}; sessionList = sessionList || [];
+        var drills = Number(summary.total) || 0;
+        var atRisk = Number(summary.at_risk) || 0;
+        var campaigns = phishData.campaigns || [];
+        var recipients = campaigns.reduce(function (a, c) { return a + (Number(c.recipients) || 0); }, 0);
+        var clicked = campaigns.reduce(function (a, c) { return a + (Number(c.clicked) || 0); }, 0);
+        var decoy = sessionList.filter(function (s) { return s.mode === 'decoy'; }).length;
+        var intel = sessionList.reduce(function (a, s) { return a + (Number(s.intel_count) || 0); }, 0);
+        var caught = atRisk + clicked;
+
+        /* headline figures */
+        var fig = $('#overview-figures');
+        clearNode(fig);
+        var caughtTile = tile('People caught out', showNumber(caught), [h('span', { text: 'across every channel' })]);
+        if (caught > 0) caughtTile.dataset.pass = 'false';
+        fig.appendChild(caughtTile);
+        fig.appendChild(tile('Drills run', showNumber(drills), [h('span', { text: atRisk + ' at risk (' + pct(atRisk, drills) + '%)' })]));
+        fig.appendChild(tile('Phishing emails', showNumber(recipients), [h('span', { text: clicked + ' clicked (' + pct(clicked, recipients) + '%)' })]));
+        fig.appendChild(tile('Scammers engaged', showNumber(decoy), [h('span', { text: showNumber(intel) + ' details captured' })]));
+
+        /* caught out, by channel */
+        var ch = $('#overview-channels');
+        clearNode(ch);
+        var byChannel = {};
+        (summary.by_channel || []).forEach(function (r) { byChannel[r.channel] = r; });
+        var rows = [];
+        ['web', 'voice', 'telegram'].forEach(function (c) {
+          var r = byChannel[c];
+          if (r && r.total) rows.push(channelRow(CHANNEL_LABELS[c], r.at_risk, r.total));
+        });
+        if (recipients > 0) rows.push(channelRow(CHANNEL_LABELS.email, clicked, recipients));
+        if (!rows.length) ch.appendChild(h('p', { class: 'empty', text: 'No results on any channel yet.' }));
+        else rows.forEach(function (r) { ch.appendChild(r); });
+
+        /* drill outcomes */
+        var outEl = $('#overview-outcomes');
+        clearNode(outEl);
+        var byOutcome = summary.by_outcome || {};
+        var keys = OUTCOME_ORDER.slice();
+        Object.keys(byOutcome).forEach(function (k) { if (keys.indexOf(k) === -1) keys.push(k); });
+        var maxO = 0;
+        keys.forEach(function (k) { maxO = Math.max(maxO, Number(byOutcome[k]) || 0); });
+        keys.forEach(function (k) {
+          var count = Number(byOutcome[k]) || 0;
+          outEl.appendChild(h('div', { class: 'bar-row', 'data-outcome': k }, [
+            h('span', { text: labelFor(OUTCOME_LABELS, k) }),
+            bar(maxO > 0 ? (count / maxO) * 100 : 0),
+            h('span', { class: 'bar-count', text: String(count) })
+          ]));
+        });
+
+        /* red flags people miss most */
+        var flagsEl = $('#overview-flags');
+        clearNode(flagsEl);
+        var flags = summary.by_flag || [];
+        $('#overview-flags-empty').hidden = flags.length > 0;
+        var maxF = flags.reduce(function (m, x) { return Math.max(m, Number(x.count) || 0); }, 0);
+        flags.forEach(function (x) {
+          var count = Number(x.count) || 0;
+          flagsEl.appendChild(h('div', { class: 'bar-row', 'data-tone': 'warn' }, [
+            setText(h('span', { title: String(x.flag || '') }), truncate(x.flag, 52)),
+            bar(maxF > 0 ? (count / maxF) * 100 : 0),
+            h('span', { class: 'bar-count', text: String(count) })
+          ]));
+        });
+
+        /* at risk, by scenario and by group */
+        fillRiskTable($('#overview-scenarios'), summary.by_scenario || [], function (r) {
+          return r.title || (r.scenario_id == null ? '' : String(r.scenario_id));
+        }, 'No drills yet.');
+        fillRiskTable($('#overview-groups'), summary.by_group || [], function (r) {
+          return r.group == null ? '' : String(r.group);
+        }, 'No group is large enough to show yet.');
+        note($('#overview-min'), (summary.min_group != null && (summary.by_group || []).length)
+          ? 'Groups below ' + summary.min_group + ' people are hidden, so no one is singled out.' : '');
+
+        /* who clicked a phishing link */
+        var clickBody = $('#overview-clicked-body');
+        clearNode(clickBody);
+        var clickers = [];
+        campaigns.forEach(function (c) {
+          (c.people || []).forEach(function (p) {
+            if (p.clicked_at != null) clickers.push({ name: p.name, email: p.email, group: c.group_name, when: p.clicked_at });
+          });
+        });
+        clickers.sort(function (a, b) { return (b.when || 0) - (a.when || 0); });
+        if (!clickers.length) {
+          clickBody.appendChild(h('tr', null, h('td', { colspan: '4', class: 'empty', text: 'No one has clicked a phishing link yet.' })));
+        } else {
+          clickers.forEach(function (p) {
+            clickBody.appendChild(h('tr', { 'data-clicked': 'true' }, [
+              setText(h('td'), p.name || '—'),
+              setText(h('td'), p.email || ''),
+              setText(h('td'), p.group || '—'),
+              setText(h('td', { class: 'small' }), formatDateTime(p.when))
+            ]));
+          });
+        }
+      }
+
+      async function loadOverview() {
+        if (loadingOverview) return;
+        loadingOverview = true;
+        $('#overview-refresh').disabled = true;
+        note($('#overview-error'), '');
+        try {
+          var parts = await Promise.all([
+            apiGet('/drills/summary'),
+            apiGet('/phish').catch(function (e) { if (authFailed(e)) throw e; return {}; }),
+            apiGet('/sessions').catch(function (e) { if (authFailed(e)) throw e; return {}; })
+          ]);
+          renderOverview(parts[0], parts[1], (parts[2] && parts[2].sessions) || []);
+        } catch (err) {
+          if (authFailed(err)) return;
+          note($('#overview-error'), 'Could not load the overview: ' + err.message, 'error');
+        } finally {
+          loadingOverview = false;
+          $('#overview-refresh').disabled = !ready;
+        }
+      }
+
+      $('#overview-refresh').addEventListener('click', loadOverview);
 
       /* ================================================================ sessions */
 
@@ -996,6 +1212,7 @@
           note(sessionsError, 'The server did not answer. Reload the page to try again.', 'error');
           return;
         }
+        $('#overview-refresh').disabled = false;
         campaignsRefresh.disabled = false;
         drillsRefresh.disabled = false;
         evalRefresh.disabled = false;

@@ -434,9 +434,14 @@ async def get_drill_result(conv_id):
 
 
 async def list_drill_results():
+    """Each drill result with the channel it ran on (from its conversation) and the flags missed."""
     async with Session() as s:
-        rows = (await s.execute(select(DrillResult))).scalars().all()
-    return [{"scenario_id": r.scenario_id, "group": r.group_name, "outcome": r.outcome} for r in rows]
+        rows = (await s.execute(
+            select(DrillResult, Conversation.channel).join(
+                Conversation, Conversation.id == DrillResult.conversation_id, isouter=True))).all()
+    return [{"scenario_id": r.scenario_id, "group": r.group_name, "outcome": r.outcome,
+             "channel": channel or "web", "flags_missed": list(r.flags_missed or []),
+             "turns": r.turns, "created_at": r.created_at} for r, channel in rows]
 
 
 # ---- enrolments ------------------------------------------------------------

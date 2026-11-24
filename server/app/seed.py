@@ -13,9 +13,9 @@ import uuid
 
 from sqlalchemy import delete, select
 
-from . import canaries, db, extract
+from . import canaries, cards, db, extract
 
-VERSION = 2
+VERSION = 3
 NAMESPACE = uuid.UUID("6b1f6a3e-5a0e-4a53-9d0f-4b2b6f6d5c11")
 
 
@@ -112,6 +112,27 @@ SINGLES = [
 DRILL_GROUPS = [("Finance", 12), ("Operations", 14), ("IT", 8), ("Front desk", 6), ("HR", 3)]
 DRILL_SCENARIOS = ["scn_bank_otp_v1", "scn_traffic_fine_v1", "scn_courier_parcel_v1"]
 DRILL_OUTCOMES = ["resisted"] * 9 + ["hesitated"] * 4 + ["would_comply"] * 5 + ["attempted_disclosure"] * 2
+# How a drill reached the person. Weighted so the channel chart has shape; text is the most common.
+DRILL_CHANNELS = ["web"] * 5 + ["voice"] * 3 + ["telegram"] * 2
+
+
+def _drill_flags(scenario_id):
+    """The red flags a card teaches, kept as the ones missed when a person was caught out."""
+    card = cards.scenario(scenario_id, "en") or {}
+    return list(card.get("red_flags") or [])[:3]
+
+
+# One synthetic phishing-awareness campaign, so the dashboard shows who clicked. All invented:
+# the names are made up and every address sits under the reserved example.com domain.
+PHISH_CODE = "seedphishpilot"
+PHISH_PEOPLE = [
+    ("Sara Ahmed", "sara@example.com", True),
+    ("Omar Yusuf", "omar@example.com", True),
+    ("Yousef Saleh", "yousef@example.com", True),
+    ("Layla Hassan", "layla@example.com", False),
+    ("Khalid Nasser", "khalid@example.com", False),
+    ("Mariam Ali", "mariam@example.com", False),
+]
 
 
 def _lines(name, index):
@@ -186,12 +207,33 @@ async def run():
         number = 0
         for group, size in DRILL_GROUPS:
             for _ in range(size):
+                sid = DRILL_SCENARIOS[number % len(DRILL_SCENARIOS)]
+                outcome = rng.choice(DRILL_OUTCOMES)
+                channel = rng.choice(DRILL_CHANNELS)
+                turns = rng.randint(2, 7)
+                created = time.time() - rng.randint(1, 12) * 86400
+                conv_id = f"seed-drill-{number}"
+                # A light, ended drill conversation so the result can be grouped by channel.
+                s.add(db.Conversation(
+                    id=conv_id, mode="drill", channel=channel, language="en", scenario_id=sid,
+                    external_id="seed", stage="LESSON", status="ended", turn_count=turns,
+                    voice_agent="english", opening_line="", started_at=created,
+                    ended_at=created + 60 * turns))
+                flags = [] if outcome in ("resisted", "ignored") else _drill_flags(sid)
                 s.add(db.DrillResult(
-                    conversation_id=f"seed-drill-{number}", enrolment_id=None,
-                    scenario_id=DRILL_SCENARIOS[number % len(DRILL_SCENARIOS)], group_name=group,
-                    outcome=rng.choice(DRILL_OUTCOMES), flags_missed=[], turns=rng.randint(2, 7),
-                    created_at=time.time() - rng.randint(1, 12) * 86400))
+                    conversation_id=conv_id, enrolment_id=None, scenario_id=sid, group_name=group,
+                    outcome=outcome, flags_missed=flags, turns=turns, created_at=created))
                 number += 1
+        # One phishing campaign so the "who clicked" view has names in it.
+        phish_created = time.time() - 2 * 86400
+        s.add(db.PhishCampaign(code=PHISH_CODE, group_name="Pilot", scenario_id="scn_bank_otp_v1",
+                               language="en", authorised_by="Demo organiser", created_at=phish_created))
+        for index, (name, email, did_click) in enumerate(PHISH_PEOPLE):
+            s.add(db.PhishTarget(
+                campaign_code=PHISH_CODE, name=name, email=email, token=f"seedtok{index}",
+                scenario_id="scn_bank_otp_v1", language="en",
+                status="clicked" if did_click else "sent", sent_at=phish_created,
+                clicked_at=(phish_created + 3600 + index * 900) if did_click else None))
         await s.commit()
     await db.put_value("seed", {"version": VERSION, "conversations": added, "drills": number})
     return added
@@ -205,6 +247,8 @@ async def clear():
             await s.execute(delete(table).where(table.conversation_id.in_(ids)))
         await s.execute(delete(db.Conversation).where(db.Conversation.external_id == "seed"))
         await s.execute(delete(db.DrillResult).where(db.DrillResult.conversation_id.like("seed-drill-%")))
+        await s.execute(delete(db.PhishTarget).where(db.PhishTarget.campaign_code == PHISH_CODE))
+        await s.execute(delete(db.PhishCampaign).where(db.PhishCampaign.code == PHISH_CODE))
         await s.execute(delete(db.KeyValue).where(db.KeyValue.key == "seed"))
         await s.commit()
     return len(ids)

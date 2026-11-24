@@ -21,8 +21,10 @@ def test_seed_loads_linked_campaigns_once_and_clears(client, code):
     client.portal.call(db.put_value, "seed", {"version": seed.VERSION - 1})
     assert client.portal.call(seed.run) == 25                    # an older set is replaced, not added to
 
+    # 25 decoy/single conversations, plus one ended drill conversation per drill result, so each
+    # result can be grouped by the channel it ran on.
     sessions = client.get("/sessions", headers=code).json()["sessions"]
-    assert len(sessions) == before + 25
+    assert len(sessions) == before + 25 + 43
     graph = client.get("/campaigns", headers=code).json()
     cue_iban = "iban:" + seed.CAMPAIGNS["safe_account"]["iban"]
     assert sum(1 for edge in graph["edges"] if edge["target"] == cue_iban) == 9
@@ -45,6 +47,6 @@ def test_seed_loads_linked_campaigns_once_and_clears(client, code):
         time.sleep(0.05)
     assert {"source": conv_id, "target": cue_iban} in graph["edges"]
 
-    assert client.portal.call(seed.clear) == 25
+    assert client.portal.call(seed.clear) == 25 + 43
     assert len(client.get("/sessions", headers=code).json()["sessions"]) == before + 1
     assert client.get("/drills/summary", headers=code).json()["total"] == drills_before

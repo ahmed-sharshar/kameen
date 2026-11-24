@@ -231,13 +231,19 @@ async def drills_summary():
     results = await db.list_drill_results()
     minimum = int(os.environ.get("DRILL_MIN_GROUP", "5"))
     at_risk = {"would_comply", "attempted_disclosure"}
-    by_outcome, by_scenario, by_group = {}, {}, {}
+    by_outcome, by_scenario, by_group, by_channel, by_flag = {}, {}, {}, {}, {}
+    risky = 0
     for r in results:
         by_outcome[r["outcome"]] = by_outcome.get(r["outcome"], 0) + 1
-        for table, key in ((by_scenario, r["scenario_id"]), (by_group, r["group"] or "No group")):
+        is_risk = r["outcome"] in at_risk
+        risky += is_risk
+        for table, key in ((by_scenario, r["scenario_id"]), (by_group, r["group"] or "No group"),
+                           (by_channel, r.get("channel") or "web")):
             row = table.setdefault(key, {"total": 0, "at_risk": 0})
             row["total"] += 1
-            row["at_risk"] += r["outcome"] in at_risk
+            row["at_risk"] += is_risk
+        for flag in (r.get("flags_missed") or []):
+            by_flag[flag] = by_flag.get(flag, 0) + 1
     # Aggregates only: groups smaller than the minimum are folded together.
     small = {"group": "Smaller groups (combined)", "total": 0, "at_risk": 0}
     groups = []
@@ -250,9 +256,13 @@ async def drills_summary():
     if small["total"]:
         groups.append(small)
     return {
-        "total": len(results), "by_outcome": by_outcome, "min_group": minimum, "by_group": groups,
+        "total": len(results), "at_risk": risky, "by_outcome": by_outcome, "min_group": minimum,
+        "by_group": groups,
         "by_scenario": [{"scenario_id": sid, "title": (cards.scenario(sid) or {}).get("title", sid), **row}
                         for sid, row in sorted(by_scenario.items(), key=lambda kv: str(kv[0]))],
+        "by_channel": [{"channel": c, **row} for c, row in sorted(by_channel.items())],
+        "by_flag": sorted(({"flag": f, "count": n} for f, n in by_flag.items()),
+                          key=lambda x: (-x["count"], x["flag"]))[:8],
     }
 
 

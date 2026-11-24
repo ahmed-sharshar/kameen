@@ -986,6 +986,15 @@ body.is-revealed { background: var(--reveal-paper); }
 .bar-row[data-outcome="would_comply"] .bar-fill,
 .bar-row[data-outcome="attempted_disclosure"] .bar-fill { background: var(--red); }
 .bar-count { text-align: end; font-variant-numeric: tabular-nums; font-weight: 600; }
+.bar-row[data-tone="risk"] .bar-fill { background: var(--red); }
+.bar-row[data-tone="warn"] .bar-fill { background: var(--amber); }
+.bar-row[data-tone="ok"] .bar-fill { background: var(--green); }
+.bar-row .bar-sub { display: block; font-size: 0.78rem; color: var(--ink-soft); margin-top: 0.1rem; }
+
+/* Overview: each block of analysis sits on its own quiet card. */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 1.1rem 1.2rem 1.25rem; }
+.panel .bars, .panel .table-wrap { margin-top: 0.2rem; }
+.figures--lead .figure-tile[data-pass="false"] .figure-value { color: var(--red); }
 
 .split { display: grid; gap: 1.5rem; align-items: start; }
 .split > * { min-width: 0; }

@@ -65,7 +65,7 @@ Both write the numbers shown on the dashboard's Evidence tab.
 
 ## Demo history
 
-`server/scripts/seed.py` loads 25 synthetic past conversations in three linked campaigns, plus 43 drill results, so the dashboard has something to show. Everything in it is invented: IBANs use the synthetic bank code, phone numbers are made-up digits after the 050 prefix, and links sit under the reserved example domains. Run it with `--clear` to remove it, or `--cue` to print the IBAN and phone for the demo cue card. On the server, `SEED_DEMO=1` loads it once at start-up.
+`server/scripts/seed.py` loads 25 synthetic decoy conversations in three linked campaigns, 43 drills (each a short ended conversation, spread across text, voice and Telegram so the dashboard's channel chart has shape), and one phishing campaign where three of six invented recipients clicked, so the dashboard's Overview tab has something to show. Everything in it is invented: IBANs use the synthetic bank code, phone numbers are made-up digits after the 050 prefix, recipient names are fictional with addresses under `example.com`, and links sit under the reserved example domains. Run it with `--clear` to remove it, or `--cue` to print the IBAN and phone for the demo cue card. On the server, `SEED_DEMO=1` loads it once at start-up.
 
 ## Approving a scenario card
 
