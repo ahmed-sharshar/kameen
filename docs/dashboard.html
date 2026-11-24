@@ -1228,7 +1228,7 @@
       /* A fooled case that was not auto-emailed can be sent to any address from here. */
       function caseEmailForm(c) {
         if (!caseEmailCfg) {
-          return h('p', { class: 'small case-status', text: 'Fooled — add a Resend key on the server to email the case details.' });
+          return h('p', { class: 'small case-status', text: 'Fooled — set up email on the server (SMTP or a Resend key) to send the case details.' });
         }
         var input = h('input', { type: 'email', class: 'input case-dest', value: caseAlertTo || '',
           placeholder: 'email address', 'aria-label': 'Email the case details to' });

@@ -20,9 +20,7 @@ import re
 import secrets
 import time
 
-import httpx
-
-from . import agent, cards, db, llm
+from . import agent, cards, db, llm, mail
 
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MAX_RECIPIENTS = 200
@@ -56,11 +54,12 @@ REVEAL_SAFE = {"en": "No information was collected. The link you clicked was par
 
 
 def configured():
-    return bool(os.environ.get("RESEND_API_KEY", "").strip()) and bool(sender_address())
+    return mail.configured()
 
 
 def sender_address():
-    return os.environ.get("MAIL_FROM_ADDRESS", "onboarding@resend.dev").strip()
+    """The address awareness emails are actually sent from (the SMTP account, or MAIL_FROM_ADDRESS)."""
+    return mail.from_address()
 
 
 def base_url():
@@ -163,30 +162,17 @@ def email_text(card, language, link, name="", email="", token=""):
 
 
 async def send_one(target):
-    """Sends one email through Resend. Returns (ok, error)."""
+    """Sends one awareness email (SMTP to any recipient, or Resend). Returns (ok, error)."""
     card = cards.scenario(target.scenario_id, target.language)
     link = base_url() + "/t/" + target.token
-    payload = {
-        "from": f"{sender_name(card, target.language)} <{sender_address()}>", "to": [target.email],
-        "reply_to": sender_address(), "subject": subject(card, target.language),
-        "html": email_html(card, target.language, link, target.name, target.email, target.token),
-        "text": email_text(card, target.language, link, target.name, target.email, target.token),
+    return await mail.deliver(
+        from_name=sender_name(card, target.language), to=target.email,
+        subject=subject(card, target.language),
+        html=email_html(card, target.language, link, target.name, target.email, target.token),
+        text=email_text(card, target.language, link, target.name, target.email, target.token),
+        reply_to=mail.from_address(),
         # Standard header for authorised bulk mail; helps deliverability and is good practice.
-        "headers": {"List-Unsubscribe": f"<mailto:{sender_address()}?subject=unsubscribe>"},
-    }
-    try:
-        async with httpx.AsyncClient(timeout=20) as http:
-            reply = await http.post("https://api.resend.com/emails", json=payload,
-                                    headers={"Authorization": "Bearer " + os.environ["RESEND_API_KEY"].strip()})
-    except Exception as error:
-        return False, type(error).__name__
-    if reply.status_code >= 300:
-        try:
-            message = reply.json().get("message", "")
-        except Exception:
-            message = ""
-        return False, f"{reply.status_code} {message}".strip()
-    return True, ""
+        headers={"List-Unsubscribe": f"<mailto:{mail.from_address()}?subject=unsubscribe>"})
 
 
 async def send_queued():

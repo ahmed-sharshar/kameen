@@ -6,9 +6,7 @@ police, a bank or any other body. Email only (SMS was removed); sending reuses t
 import html as _html
 import os
 
-import httpx
-
-from . import phish
+from . import mail
 
 
 def brand():
@@ -26,7 +24,7 @@ def auto_email_number():
 
 
 def email_configured():
-    return phish.configured()
+    return mail.configured()
 
 
 FIELDS = [("Case reference", "case_ref"), ("Person", "person"), ("Channel", "channel"),
@@ -61,27 +59,13 @@ def case_text(case):
 
 
 async def send_email(to, subject, html, text):
-    """One email through Resend. Returns (ok, error)."""
-    payload = {"from": f"{brand()} <{phish.sender_address()}>", "to": [to],
-               "subject": subject, "html": html, "text": text}
-    try:
-        async with httpx.AsyncClient(timeout=20) as http:
-            reply = await http.post("https://api.resend.com/emails", json=payload,
-                                    headers={"Authorization": "Bearer " + os.environ["RESEND_API_KEY"].strip()})
-    except Exception as error:
-        return False, type(error).__name__
-    if reply.status_code >= 300:
-        try:
-            message = reply.json().get("message", "")
-        except Exception:
-            message = ""
-        return False, f"{reply.status_code} {message}".strip()
-    return True, ""
+    """One email, branded as this project (SMTP to any recipient, or Resend). Returns (ok, error)."""
+    return await mail.deliver(from_name=brand(), to=to, subject=subject, html=html, text=text)
 
 
 async def send_case_email(case, to):
     """Emails the case details to `to`. Returns (ok, error)."""
     if not email_configured():
-        return False, "Email sending is not set up (add a Resend key)."
+        return False, "Email sending is not set up (add SMTP_USER/SMTP_PASSWORD, or a Resend key)."
     subject = f"{brand()} — case {case.get('case_ref')} ({case.get('person')})"
     return await send_email(to, subject, case_html(case), case_text(case))
