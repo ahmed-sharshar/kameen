@@ -1033,6 +1033,19 @@ body.is-revealed { background: var(--reveal-paper); }
 .legend-val { font-variant-numeric: tabular-nums; font-weight: 600; }
 .legend-sub { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
+/* Simulated police cases. */
+.case-card { border: 1px solid var(--line); border-radius: var(--radius-m); padding: 1rem 1.1rem 1.1rem; background: var(--surface); }
+.case-card + .case-card { margin-top: 1rem; }
+.case-head { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; margin-bottom: 0.85rem; }
+.case-head strong { font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+.case-when { margin-left: auto; }
+.case-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.7rem 1.25rem; }
+.case-field { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.case-k { font-size: 0.74rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.04em; }
+.case-v { overflow-wrap: anywhere; }
+.case-sms { margin-top: 0.9rem; padding: 0.65rem 0.85rem; border-radius: var(--radius-s); background: var(--sunk); }
+.case-sms-body { margin: 0.25rem 0 0; font-size: 0.9rem; }
+
 .split { display: grid; gap: 1.5rem; align-items: start; }
 .split > * { min-width: 0; }
 .section-title { margin-bottom: 0.6rem; }

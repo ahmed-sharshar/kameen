@@ -3,7 +3,7 @@ import asyncio
 import re
 import time
 
-from . import db, fake, guards, llm
+from . import cases, db, fake, guards, llm
 from .director import run_director
 from .events import publish
 from .extract import run_extractor
@@ -273,6 +273,8 @@ async def reveal_and_teach(conv, outcome):
     text = " ".join(lines)
     red_flags = conv.card.get("red_flags", [])
     await db.finish_drill(conv, outcome, [] if outcome in ("resisted", "ignored") else red_flags)
+    # A person caught out in a drill opens a simulated police case (never a real TAMM/Aman filing).
+    await cases.open_from_drill(conv, outcome)
     await db.add_message(conv.id, "agent", text)
     await publish(conv.id, {"type": "drill_outcome", "outcome": outcome, "text": text,
                             "lesson": lesson, "red_flags": red_flags})

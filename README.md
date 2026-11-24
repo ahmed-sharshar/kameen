@@ -117,6 +117,22 @@ On the **Test yourself** page, an organiser enters a number, a scenario and a vo
 
 Note: the UAE regulates VoIP. Calls from a foreign carrier to UAE mobiles may be filtered or shown as international, and a local caller ID cannot be set. For a real rollout, use the local carriers; for a demo, call verified test numbers.
 
+## Simulated police case handoff (Cases tab)
+
+A **simulation only**, to show how Kameen would close the loop with the police. When a drill catches a
+person out (`would_comply` or `attempted_disclosure`) or a phishing link is clicked, Kameen opens a case
+on the dashboard's **Cases** tab, with the person, their contact, the channel they were caught on, a
+mock UAE Pass identity, and a follow-up SMS carrying a case reference.
+
+Nothing here is real and Kameen is not authorised to make it real:
+
+- It is **not connected** to TAMM, UAE Pass or the Abu Dhabi Police Aman service. The Emirates ID is
+  invented, the case reference is local, and the SMS is **never sent** — it is only shown in the UI,
+  marked as a simulation. A real police-branded SMS to a real person would itself be impersonation.
+- `app/cases.py` holds the mock steps (identity, case reference, SMS). If this were ever authorised,
+  those are the seams where the real UAE Pass OAuth and a real case API would slot in.
+- The `cases` table is created automatically; no new environment variable is needed.
+
 ## Sessions that go quiet
 
 Once a minute the server closes sessions nobody is in any more: a drill after 15 minutes without a message, a decoy session after two hours. A drill closed this way still gets the reveal and the lesson on its record, with the outcome `stopped`. Leaving the drill page does the same at once.

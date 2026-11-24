@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300..700&display=swap">
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script>requireCode();</script>
@@ -39,6 +39,7 @@
         <button type="button" class="tab" role="tab" id="tabbtn-sessions" data-tab="sessions" aria-controls="tab-sessions" aria-selected="false" tabindex="-1">Sessions</button>
         <button type="button" class="tab" role="tab" id="tabbtn-campaigns" data-tab="campaigns" aria-controls="tab-campaigns" aria-selected="false" tabindex="-1">Campaigns</button>
         <button type="button" class="tab" role="tab" id="tabbtn-drills" data-tab="drills" aria-controls="tab-drills" aria-selected="false" tabindex="-1">Drills</button>
+        <button type="button" class="tab" role="tab" id="tabbtn-cases" data-tab="cases" aria-controls="tab-cases" aria-selected="false" tabindex="-1">Cases</button>
         <button type="button" class="tab" role="tab" id="tabbtn-evidence" data-tab="evidence" aria-controls="tab-evidence" aria-selected="false" tabindex="-1">Evidence</button>
       </div>
 
@@ -280,6 +281,19 @@
         </div>
       </section>
 
+      <!-- Cases (simulated police handoff) -->
+      <section id="tab-cases" role="tabpanel" aria-labelledby="tabbtn-cases" hidden>
+        <div class="tab-head">
+          <p>When a drill catches someone out, or a phishing link is clicked, Kameen opens a case &mdash; mirroring a handoff to Abu Dhabi Police (Aman) via TAMM, with the person's identity confirmed by UAE Pass, and a follow-up SMS carrying the case reference.</p>
+          <button type="button" class="btn btn-small" id="cases-refresh" disabled>Refresh</button>
+        </div>
+        <p class="note" data-kind="info" style="margin-bottom: 1.25rem;">Simulation only &mdash; not connected to TAMM, UAE Pass or the Aman service, which Kameen is not authorised to use. Every record here is synthetic, generated from Kameen's own drills and awareness tests; no real case is filed and no SMS is ever sent.</p>
+        <p class="note" id="cases-error" role="alert" hidden></p>
+        <div class="figures" id="cases-figures"></div>
+        <div id="cases-list" class="stack" style="margin-top: 1.5rem;"></div>
+        <p class="empty" id="cases-empty">Loading cases&hellip;</p>
+      </section>
+
       <!-- Evidence -->
       <section id="tab-evidence" role="tabpanel" aria-labelledby="tabbtn-evidence" hidden>
         <div class="tab-head">
@@ -341,6 +355,7 @@
         else if (name === 'sessions') loadSessions();
         else if (name === 'campaigns') loadCampaigns();
         else if (name === 'drills') { loadDrills(); loadInvites(); }
+        else if (name === 'cases') loadCases();
         else if (name === 'evidence') loadEval();
       }
 
@@ -1195,6 +1210,78 @@
         }
       });
 
+      /* ================================================================ cases (simulated) */
+
+      var CASE_CHANNEL = { voice: 'Phone call', web: 'Web / SMS', telegram: 'Telegram', email: 'Email', sms: 'SMS' };
+      var loadingCases = false;
+
+      function caseField(k, v) {
+        return h('div', { class: 'case-field' }, [
+          setText(h('span', { class: 'case-k' }), k),
+          setText(h('span', { class: 'case-v' }), v)
+        ]);
+      }
+
+      function renderCases(data) {
+        var rows = (data && data.cases) || [];
+        var fig = $('#cases-figures');
+        clearNode(fig);
+        fig.appendChild(tile('Cases opened', showNumber(rows.length)));
+        var byChan = {};
+        rows.forEach(function (c) { byChan[c.channel] = (byChan[c.channel] || 0) + 1; });
+        ['voice', 'email', 'telegram', 'web'].forEach(function (ch) {
+          if (byChan[ch]) fig.appendChild(tile(CASE_CHANNEL[ch], showNumber(byChan[ch]), [h('span', { text: 'cases' })]));
+        });
+
+        var list = $('#cases-list');
+        clearNode(list);
+        rows.forEach(function (c) {
+          var channel = CASE_CHANNEL[c.channel] || humanize(c.channel);
+          var flagged = c.source === 'phishing'
+            ? 'Clicked a phishing link'
+            : 'Drill — ' + labelFor(OUTCOME_LABELS, c.outcome).toLowerCase();
+          var head = h('div', { class: 'case-head' }, [
+            h('strong', { text: c.case_ref }),
+            h('span', { class: 'chip', 'data-tone': 'fail', text: channel }),
+            h('span', { class: 'chip', text: c.status || 'Open' }),
+            setText(h('span', { class: 'small case-when' }), formatDateTime(c.created_at))
+          ]);
+          var grid = h('div', { class: 'case-grid' }, [
+            caseField('Victim', c.person || '—'),
+            caseField('Identity (UAE Pass, simulated)', (c.emirates_id || '—') + '  ✓ verified'),
+            caseField('Contact', c.email || c.phone || '—'),
+            caseField('Scam type', c.scam_type || '—'),
+            caseField('Caught on', channel),
+            caseField('How it was flagged', flagged)
+          ]);
+          var sms = h('div', { class: 'case-sms' }, [
+            setText(h('span', { class: 'case-k' }), 'Follow-up SMS (simulated — not sent)'),
+            setText(h('p', { class: 'case-sms-body' }), c.sms_text || '')
+          ]);
+          list.appendChild(h('div', { class: 'case-card' }, [head, grid, sms]));
+        });
+        note($('#cases-empty'), rows.length ? '' : 'No cases yet. A case opens when a drill catches someone out or a phishing link is clicked.');
+      }
+
+      async function loadCases() {
+        if (loadingCases) return;
+        loadingCases = true;
+        $('#cases-refresh').disabled = true;
+        note($('#cases-error'), '');
+        try {
+          renderCases(await apiGet('/cases'));
+        } catch (err) {
+          if (authFailed(err)) return;
+          note($('#cases-empty'), '');
+          note($('#cases-error'), 'Could not load cases: ' + err.message, 'error');
+        } finally {
+          loadingCases = false;
+          $('#cases-refresh').disabled = !ready;
+        }
+      }
+
+      $('#cases-refresh').addEventListener('click', loadCases);
+
       /* ================================================================ evidence */
 
       var evalRefresh = $('#eval-refresh');
@@ -1272,6 +1359,7 @@
         $('#overview-refresh').disabled = false;
         campaignsRefresh.disabled = false;
         drillsRefresh.disabled = false;
+        $('#cases-refresh').disabled = false;
         evalRefresh.disabled = false;
         await loadNames();
         openTab(activeTab);

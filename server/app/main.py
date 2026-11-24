@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-from . import agent, campaigns, cards, db, evidence, llm, phish, seed, sessions, telegram, voice
+from . import agent, campaigns, cards, cases, db, evidence, llm, phish, seed, sessions, telegram, voice
 from .director import make_playbook
 from .events import publish, subscribe
 
@@ -430,7 +430,15 @@ async def phish_click(token: str):
     target = await db.record_click(token)
     if target is None:
         raise HTTPException(404, "This link is not valid.")
+    if target.first_click:                      # the first click opens a simulated police case
+        await cases.open_from_phish(target)
     return phish.reveal_page(target.scenario_id, target.language, target.name)
+
+
+@app.get("/cases", dependencies=[Depends(require_code)])
+async def list_cases():
+    """Simulated police cases opened from at-risk drills and phishing clicks. Behind the access code."""
+    return {"cases": await db.list_cases()}
 
 
 @app.post("/telegram/webhook")

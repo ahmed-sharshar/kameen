@@ -177,6 +177,27 @@ class PhishTarget(Base):
     clicked_at: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
+class Case(Base):
+    """A SIMULATED police-side case, opened when a drill shows a person was about to hand over a secret
+    or a phishing link is clicked. Synthetic only: never filed to TAMM, UAE Pass or Aman."""
+    __tablename__ = "cases"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    case_ref: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    person: Mapped[str] = mapped_column(String(80))
+    email: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    channel: Mapped[str] = mapped_column(String(12))                 # voice, web, telegram, email
+    scam_type: Mapped[str] = mapped_column(String(120))
+    scenario_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    outcome: Mapped[str] = mapped_column(String(24))                 # the drill outcome, or "clicked"
+    source: Mapped[str] = mapped_column(String(12))                  # drill or phishing
+    group_name: Mapped[str] = mapped_column(String(80), default="")
+    emirates_id: Mapped[str] = mapped_column(String(24), default="")  # mock UAE Pass identity
+    status: Mapped[str] = mapped_column(String(16), default="Open")
+    sms_text: Mapped[str] = mapped_column(Text, default="")           # the simulated follow-up SMS
+    created_at: Mapped[float] = mapped_column(Float)
+
+
 class KeyValue(Base):
     __tablename__ = "kv"
     key: Mapped[str] = mapped_column(String(40), primary_key=True)
@@ -511,12 +532,41 @@ async def record_click(token):
         row = (await s.execute(select(PhishTarget).where(PhishTarget.token == token))).scalars().first()
         if row is None:
             return None
-        if row.clicked_at is None:
+        first = row.clicked_at is None
+        if first:
             row.clicked_at = time.time()
             if row.status != "failed":
                 row.status = "clicked"
             await s.commit()
-        return SimpleNamespace(scenario_id=row.scenario_id, language=row.language, name=row.name)
+        return SimpleNamespace(scenario_id=row.scenario_id, language=row.language, name=row.name,
+                               email=row.email, campaign_code=row.campaign_code, first_click=first)
+
+
+# ---- simulated police cases --------------------------------------------------
+
+async def add_case(case_ref, person, email, phone, channel, scam_type, scenario_id, outcome, source,
+                   group_name, emirates_id, sms_text):
+    async with Session() as s:
+        s.add(Case(case_ref=case_ref, person=(person or "Unknown")[:80], email=(email or None),
+                   phone=(phone or None), channel=channel, scam_type=(scam_type or "")[:120],
+                   scenario_id=scenario_id, outcome=outcome, source=source, group_name=(group_name or "")[:80],
+                   emirates_id=emirates_id, status="Open", sms_text=sms_text, created_at=time.time()))
+        await s.commit()
+    return case_ref
+
+
+async def count_cases():
+    async with Session() as s:
+        return (await s.execute(select(func.count()).select_from(Case))).scalar_one()
+
+
+async def list_cases(limit=200):
+    async with Session() as s:
+        rows = (await s.execute(select(Case).order_by(Case.created_at.desc()).limit(limit))).scalars().all()
+    return [{"case_ref": r.case_ref, "person": r.person, "email": r.email, "phone": r.phone,
+             "channel": r.channel, "scam_type": r.scam_type, "outcome": r.outcome, "source": r.source,
+             "group_name": r.group_name, "emirates_id": r.emirates_id, "status": r.status,
+             "sms_text": r.sms_text, "created_at": r.created_at} for r in rows]
 
 
 async def list_campaigns():
@@ -609,12 +659,14 @@ async def chat_language(chat):
 
 
 async def get_enrolment(enrolment_id):
+    if not enrolment_id:
+        return None
     async with Session() as s:
         row = await s.get(Enrolment, enrolment_id)
     if not row:
         return None
-    return SimpleNamespace(id=row.id, person=row.person, group_name=row.group_name, channels=row.channels,
-                           expires_at=row.expires_at, last_drill_at=row.last_drill_at)
+    return SimpleNamespace(id=row.id, person=row.person, handle=row.handle, group_name=row.group_name,
+                           channels=row.channels, expires_at=row.expires_at, last_drill_at=row.last_drill_at)
 
 
 # ---- small key/value store (test metrics) ----------------------------------
