@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300..700&display=swap">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2">
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script>requireCode();</script>
@@ -54,14 +54,20 @@
 
         <div class="panel" style="margin-top: 2rem;">
           <h2 class="section-title">People caught out, by channel</h2>
-          <p class="small">The share of attempts on each channel where the person was about to hand over a secret, or clicked the phishing link. A longer red bar means that channel caught more people out.</p>
-          <div class="bars" id="overview-channels"><p class="empty">Loading...</p></div>
+          <p class="small">The donut shows which channels the caught-out people came from. The bars show each channel's risk rate &mdash; the share of attempts there where the person was about to hand over a secret or clicked the phishing link &mdash; so the riskiest channel stands out.</p>
+          <div class="chart-row">
+            <div class="donut-wrap" id="overview-channel-donut"></div>
+            <div class="bars" id="overview-channels"><p class="empty">Loading&hellip;</p></div>
+          </div>
         </div>
 
         <div class="split" style="margin-top: 2rem;">
           <div class="panel">
             <h2 class="section-title">How drills ended</h2>
-            <div class="bars" id="overview-outcomes"></div>
+            <div class="chart-row">
+              <div class="donut-wrap" id="overview-outcomes-donut"></div>
+              <ul class="legend-dots chart-legend" id="overview-outcomes-legend"></ul>
+            </div>
           </div>
           <div class="panel">
             <h2 class="section-title">Red flags people miss most</h2>
@@ -377,6 +383,66 @@
         ]);
       }
 
+      var OUTCOME_COLOR = {
+        resisted: 'var(--cat-1)', hesitated: 'var(--cat-2)', would_comply: 'var(--cat-3)',
+        attempted_disclosure: 'var(--cat-4)', distress: 'var(--cat-5)',
+        stopped: 'var(--ink-soft)', ignored: 'var(--line)'
+      };
+      var CHANNEL_COLOR = { web: 'var(--cat-4)', voice: 'var(--cat-2)', telegram: 'var(--cat-1)', email: 'var(--cat-3)' };
+      var SVG_NS = 'http://www.w3.org/2000/svg';
+
+      /* A donut chart drawn as stacked SVG arcs. Each slice is a circle whose dash gap hides the rest. */
+      function fillDonut(container, segments, centerValue, centerLabel) {
+        clearNode(container);
+        var total = segments.reduce(function (a, s) { return a + (Number(s.value) || 0); }, 0);
+        var svg = document.createElementNS(SVG_NS, 'svg');
+        svg.setAttribute('viewBox', '0 0 42 42');
+        svg.setAttribute('class', 'donut');
+        svg.setAttribute('role', 'img');
+        function ring(stroke, dasharray, dashoffset, cls) {
+          var c = document.createElementNS(SVG_NS, 'circle');
+          c.setAttribute('cx', '21'); c.setAttribute('cy', '21'); c.setAttribute('r', '15.915');
+          c.setAttribute('fill', 'none'); c.setAttribute('stroke-width', '5.5');
+          if (cls) c.setAttribute('class', cls);
+          if (stroke) c.style.stroke = stroke;
+          if (dasharray != null) {
+            c.setAttribute('stroke-dasharray', dasharray);
+            c.setAttribute('stroke-dashoffset', String(dashoffset));
+          }
+          return c;
+        }
+        svg.appendChild(ring(null, null, null, 'donut-track'));
+        if (total > 0) {
+          var cum = 0;
+          segments.forEach(function (s) {
+            var v = Number(s.value) || 0;
+            if (v <= 0) return;
+            var pct = v / total * 100;
+            svg.appendChild(ring(s.color, pct.toFixed(3) + ' ' + (100 - pct).toFixed(3), (25 - cum + 100) % 100, 'donut-seg'));
+            cum += pct;
+          });
+        }
+        container.appendChild(svg);
+        var center = h('div', { class: 'donut-center' }, [setText(h('span', { class: 'donut-center-value' }), centerValue)]);
+        if (centerLabel) center.appendChild(setText(h('span', { class: 'donut-center-label' }), centerLabel));
+        container.appendChild(center);
+      }
+
+      function fillLegend(ul, segments, emptyText) {
+        clearNode(ul);
+        segments.forEach(function (s) {
+          if ((Number(s.value) || 0) <= 0) return;
+          var dot = h('span', { class: 'legend-dot' });
+          dot.style.background = s.color;
+          ul.appendChild(h('li', null, [
+            dot,
+            setText(h('span', { class: 'legend-label' }), s.label),
+            setText(h('span', { class: 'legend-val' }), showNumber(s.value))
+          ]));
+        });
+        if (!ul.children.length) ul.appendChild(h('li', { class: 'empty', text: emptyText || 'Nothing yet.' }));
+      }
+
       function renderOverview(summary, phishData, sessionList) {
         summary = summary || {}; phishData = phishData || {}; sessionList = sessionList || [];
         var drills = Number(summary.total) || 0;
@@ -398,11 +464,19 @@
         fig.appendChild(tile('Phishing emails', showNumber(recipients), [h('span', { text: clicked + ' clicked (' + pct(clicked, recipients) + '%)' })]));
         fig.appendChild(tile('Scammers engaged', showNumber(decoy), [h('span', { text: showNumber(intel) + ' details captured' })]));
 
-        /* caught out, by channel */
-        var ch = $('#overview-channels');
-        clearNode(ch);
+        /* caught out, by channel: a donut of where they came from, plus the risk-rate bars */
         var byChannel = {};
         (summary.by_channel || []).forEach(function (r) { byChannel[r.channel] = r; });
+        var donutSegs = [];
+        ['web', 'voice', 'telegram'].forEach(function (c) {
+          var r = byChannel[c];
+          if (r && (Number(r.at_risk) || 0) > 0) donutSegs.push({ label: CHANNEL_LABELS[c], value: r.at_risk, color: CHANNEL_COLOR[c] });
+        });
+        if (clicked > 0) donutSegs.push({ label: CHANNEL_LABELS.email, value: clicked, color: CHANNEL_COLOR.email });
+        fillDonut($('#overview-channel-donut'), donutSegs, showNumber(caught), 'caught out');
+
+        var ch = $('#overview-channels');
+        clearNode(ch);
         var rows = [];
         ['web', 'voice', 'telegram'].forEach(function (c) {
           var r = byChannel[c];
@@ -412,22 +486,15 @@
         if (!rows.length) ch.appendChild(h('p', { class: 'empty', text: 'No results on any channel yet.' }));
         else rows.forEach(function (r) { ch.appendChild(r); });
 
-        /* drill outcomes */
-        var outEl = $('#overview-outcomes');
-        clearNode(outEl);
+        /* drill outcomes: a donut with a legend */
         var byOutcome = summary.by_outcome || {};
         var keys = OUTCOME_ORDER.slice();
         Object.keys(byOutcome).forEach(function (k) { if (keys.indexOf(k) === -1) keys.push(k); });
-        var maxO = 0;
-        keys.forEach(function (k) { maxO = Math.max(maxO, Number(byOutcome[k]) || 0); });
-        keys.forEach(function (k) {
-          var count = Number(byOutcome[k]) || 0;
-          outEl.appendChild(h('div', { class: 'bar-row', 'data-outcome': k }, [
-            h('span', { text: labelFor(OUTCOME_LABELS, k) }),
-            bar(maxO > 0 ? (count / maxO) * 100 : 0),
-            h('span', { class: 'bar-count', text: String(count) })
-          ]));
+        var outcomeSegs = keys.map(function (k) {
+          return { label: labelFor(OUTCOME_LABELS, k), value: Number(byOutcome[k]) || 0, color: OUTCOME_COLOR[k] || 'var(--ink-soft)' };
         });
+        fillDonut($('#overview-outcomes-donut'), outcomeSegs, showNumber(drills), 'drills');
+        fillLegend($('#overview-outcomes-legend'), outcomeSegs, 'No drills yet.');
 
         /* red flags people miss most */
         var flagsEl = $('#overview-flags');

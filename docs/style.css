@@ -26,6 +26,13 @@
   --reveal-paper: #EAF3EE;
   --bezel: #17282C;
 
+  /* Categorical palette for pie/donut charts (legend labels each slice). */
+  --cat-1: #1F6B4E;
+  --cat-2: #8A560A;
+  --cat-3: #A3281F;
+  --cat-4: #2E5E8A;
+  --cat-5: #7A4B86;
+
   --radius-s: 6px;
   --radius-m: 12px;
   --radius-l: 20px;
@@ -60,6 +67,11 @@
     --green-line: #2B5843;
     --reveal-paper: #0F211B;
     --bezel: #020607;
+    --cat-1: #7CCBA6;
+    --cat-2: #E5B45C;
+    --cat-3: #F0958B;
+    --cat-4: #8FB8E0;
+    --cat-5: #C6A6D6;
     color-scheme: dark;
   }
 }
@@ -995,6 +1007,23 @@ body.is-revealed { background: var(--reveal-paper); }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 1.1rem 1.2rem 1.25rem; }
 .panel .bars, .panel .table-wrap { margin-top: 0.2rem; }
 .figures--lead .figure-tile[data-pass="false"] .figure-value { color: var(--red); }
+
+/* Pie / donut charts. The donut is an SVG; the legend names each slice. */
+.chart-row { display: flex; flex-wrap: wrap; gap: 1.4rem 1.75rem; align-items: center; margin-top: 0.6rem; }
+.chart-row > * { min-width: 0; }
+.chart-row .bars, .chart-row .chart-legend { flex: 1 1 15rem; }
+.donut-wrap { position: relative; width: 9.5rem; height: 9.5rem; flex: 0 0 auto; }
+.donut { width: 100%; height: 100%; display: block; }
+.donut-track { stroke: var(--sunk); }
+.donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; pointer-events: none; }
+.donut-center-value { font-size: 1.7rem; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.donut-center-label { font-size: 0.72rem; color: var(--ink-soft); max-width: 6rem; }
+.legend-dots { list-style: none; display: grid; gap: 0.5rem; margin: 0; padding: 0; }
+.legend-dots li { display: flex; align-items: center; gap: 0.55rem; font-size: 0.92rem; }
+.legend-dot { width: 0.75rem; height: 0.75rem; border-radius: 3px; flex: 0 0 auto; }
+.legend-label { flex: 1; min-width: 0; }
+.legend-val { font-variant-numeric: tabular-nums; font-weight: 600; }
+.legend-sub { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
 .split { display: grid; gap: 1.5rem; align-items: start; }
 .split > * { min-width: 0; }
