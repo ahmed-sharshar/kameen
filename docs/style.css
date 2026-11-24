@@ -1003,9 +1003,11 @@ body.is-revealed { background: var(--reveal-paper); }
 .bar-row[data-tone="ok"] .bar-fill { background: var(--green); }
 .bar-row .bar-sub { display: block; font-size: 0.78rem; color: var(--ink-soft); margin-top: 0.1rem; }
 
-/* Overview: each block of analysis sits on its own quiet card. */
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 1.1rem 1.2rem 1.25rem; }
-.panel .bars, .panel .table-wrap { margin-top: 0.2rem; }
+/* Overview: each block of analysis sits on its own quiet card.
+   Named .ov-card, NOT .panel: .panel is an existing class that turns position:sticky on wide
+   screens (used by the decoy workspace), which made these cards stick to the top while scrolling. */
+.ov-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 1.1rem 1.2rem 1.25rem; }
+.ov-card .bars, .ov-card .table-wrap { margin-top: 0.2rem; }
 .figures--lead .figure-tile[data-pass="false"] .figure-value { color: var(--red); }
 
 /* Pie / donut charts. The donut is a CSS conic-gradient with a ring mask (no SVG), so it paints

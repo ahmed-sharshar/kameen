@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300..700&display=swap">
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script>requireCode();</script>
@@ -52,7 +52,7 @@
 
         <div class="figures figures--lead" id="overview-figures"></div>
 
-        <div class="panel" style="margin-top: 2rem;">
+        <div class="ov-card" style="margin-top: 2rem;">
           <h2 class="section-title">People caught out, by channel</h2>
           <p class="small">The donut shows which channels the caught-out people came from. The bars show each channel's risk rate &mdash; the share of attempts there where the person was about to hand over a secret or clicked the phishing link &mdash; so the riskiest channel stands out.</p>
           <div class="chart-row">
@@ -62,14 +62,14 @@
         </div>
 
         <div class="split" style="margin-top: 2rem;">
-          <div class="panel">
+          <div class="ov-card">
             <h2 class="section-title">How drills ended</h2>
             <div class="chart-row">
               <div class="donut-wrap" id="overview-outcomes-donut"></div>
               <ul class="legend-dots chart-legend" id="overview-outcomes-legend"></ul>
             </div>
           </div>
-          <div class="panel">
+          <div class="ov-card">
             <h2 class="section-title">Red flags people miss most</h2>
             <div class="bars" id="overview-flags"></div>
             <p class="empty" id="overview-flags-empty" hidden>No missed flags recorded yet.</p>
@@ -77,7 +77,7 @@
         </div>
 
         <div class="split" style="margin-top: 2rem;">
-          <div class="panel">
+          <div class="ov-card">
             <h2 class="section-title">At risk, by scenario</h2>
             <div class="table-wrap table-plain">
               <table class="table">
@@ -86,7 +86,7 @@
               </table>
             </div>
           </div>
-          <div class="panel">
+          <div class="ov-card">
             <h2 class="section-title">At risk, by group</h2>
             <div class="table-wrap table-plain">
               <table class="table">
@@ -98,7 +98,7 @@
           </div>
         </div>
 
-        <div class="panel" style="margin-top: 2rem;">
+        <div class="ov-card" style="margin-top: 2rem;">
           <h2 class="section-title">People who clicked a phishing link</h2>
           <p class="small">Email is the one channel where a person can be named &mdash; the link records who clicked. Drills are counted by group only, so no one is singled out.</p>
           <div class="table-wrap table-plain">
