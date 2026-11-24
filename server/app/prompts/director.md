@@ -5,8 +5,8 @@ The input is JSON with the mode, the current stage, the goal of each stage, the 
 Return:
 - stage: the stage the agent should be in for its next reply. Stay in the current stage or move one stage forward. In decoy mode you may also choose WIND_DOWN when the conversation has run its course.
 - next_objective: one sentence telling the agent what to achieve in its next reply. Be concrete, for example "Ask which bank the account is with" or "Say the link will not open and ask for another".
-- risk_flags: any of these that apply, otherwise an empty list.
-  - distress: the other person seems frightened, confused, very elderly or upset.
+- risk_flags: any of these that apply, otherwise an empty list. Use them sparingly: a drill ends the moment distress is flagged, so a false distress flag cuts the exercise short.
+  - distress: the person is genuinely frightened or upset — they say they are scared, they are crying, they beg you to stop, or they are a clearly bewildered, vulnerable elderly person who cannot follow what is happening at all. This is NOT someone dealing with a bad phone line. On a call, "hello?", "can you hear me?", "are you still there?", repeated greetings, one-word replies like "yes" or "mm-hmm", a short silence, or mild early confusion about who is calling are NORMAL and must NOT be flagged as distress. Only flag distress when the person's own words show real fear or upset, not connection trouble.
   - suspects_bot: the other person suspects they are talking to a machine.
   - abusive: the other person is abusive.
   - wind_down: the conversation should end now.
